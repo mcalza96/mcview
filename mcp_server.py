@@ -159,6 +159,20 @@ whatever you report.** Each one exists because a measurement once contradicted a
 Reporting a number from here without its caveat is the failure this tool was built to
 prevent.
 
+## `ask_the_user`: stop, do not compose around it
+
+Some results carry a top-level **`ask_the_user`**. It is not a caveat and it is not advice: it
+means the measurement rests on something nobody declared, and the tool has put the question and
+the candidate answers right there so you can ask instead of guess.
+
+**When you see it, stop and ask the user before reporting anything built on that result.**
+
+This exists because of a measured failure, not a hypothetical one: an agent was shown a warning
+that a flow's starting point had been inferred from mass, continued anyway, produced an analysis
+whose entry point turned out to be the OUTPUT formatter, and mentioned the caveat at the end.
+The warning was true and changed nothing. A flow that begins in the wrong place is not a partial
+answer — it is a wrong one, and the person reading it cannot tell.
+
 ## What is not here
 
 Full duplicate analysis, `--k`, `--hierarchy`, `--islands` and the multi-view comparison run
@@ -493,6 +507,24 @@ def call(name: str, a: dict) -> dict:
         r = _seq.trace(base, a["target"], _heatmap.pagerank(base),
                        depth=int(a.get("depth", 4)), dst=a.get("to"), obs=obs)
         r["caveat"] = CAVEAT["order"]
+        # A BLOCKING FIELD, not another caveat, and the difference is measured. An agent
+        # tracing a flow was shown "no [surfaces] declared: the origin was CHOSEN BY MASS",
+        # continued, produced an analysis whose entry point turned out to be the OUTPUT
+        # formatter, and mentioned the warning at the end — where it protects nobody. Prose
+        # in a skill did not stop it. A named top-level field carrying the question and the
+        # candidates leaves nothing to compose and nothing to skip.
+        if r.get("of_candidates", 0) > 1 and not getattr(base.cfg, "surfaces", None):
+            import blueprint as _bp
+            cands, pregunta = _bp.door_candidates(base)
+            r["ask_the_user"] = {
+                "why": "This walk began at the heaviest symbol, not at a declared door — an "
+                       "inference, and everything below is conditioned on it.",
+                "question": pregunta,
+                "candidates": cands,
+                "do_not": "Do not report this flow as an answer before asking. A flow that "
+                          "starts in the wrong place is not a partial answer, it is a wrong "
+                          "one.",
+            }
         if a.get("runtime"):
             r["runtime_caveat"] = (
                 "The probe CONFIRMS, it never rules out. A step with no mark may sit behind an "

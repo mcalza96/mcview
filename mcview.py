@@ -117,6 +117,11 @@ def main():
                                      "by walking up from the current directory")
     ap.add_argument("--project", help="shortcut: uses `mcview.<name>.toml` from the root")
     ap.add_argument("--json", action="store_true", help="structured output")
+    ap.add_argument("--init", action="store_true",
+                    help="derive a starter mcview.toml from what the project already "
+                         "declares (scripts, Dockerfile, registration decorators, routes)")
+    ap.add_argument("--force", action="store_true",
+                    help="with --init: overwrite an existing mcview.toml")
     ap.add_argument("--status", help="list one specific status")
     ap.add_argument("--limit", type=int, default=25)
     ap.add_argument("--no-duplicates", action="store_true")
@@ -200,6 +205,41 @@ def main():
                     help="with --flow: a Mermaid diagram. 'sequence' (default) = the real "
                          "paths merged; 'map' = the lines of work around it")
     args = ap.parse_args()
+
+    # --init runs BEFORE config discovery, which is the whole point: it exists for the repo
+    # that does not have one yet. Every other path exits here with "could not find
+    # mcview.toml", and that message is where a first-time user currently stops.
+    if args.init:
+        import bootstrap as _boot
+        root = os.getcwd()
+        target = os.path.join(root, "mcview.toml")
+        findings = _boot.detect(root)
+        # `--json` inspects without writing, so the overwrite guard does not apply to it:
+        # gating a read-only path behind a write guard makes the tool refuse to answer a
+        # question it can answer perfectly well.
+        if args.json:
+            print(_json.dumps(findings, ensure_ascii=False, indent=2))
+            return
+        if os.path.exists(target) and not args.force:
+            sys.exit(f"  {target} already exists. Read it before replacing it — it may carry "
+                     f"roots that were added because of a real false positive. "
+                     f"Use --force to overwrite, or --json to see what it would derive.")
+        open(target, "w", encoding="utf-8").write(_boot.render(root, findings))
+        n_dec = len(findings["decorators"])
+        n_ent = len(findings["entrypoints"])
+        print(f"\n  wrote {target}")
+        print(f"  {findings['language']} · {findings['n_py']} .py · {findings['n_ts']} .ts/.tsx")
+        print(f"  {n_dec} registration decorator(s) · {len(findings['route_methods'])} route "
+              f"method(s) · {n_ent} entrypoint(s)")
+        if not (n_dec or n_ent or findings["route_methods"]):
+            print("\n  ⚠ nothing real was found: it fell back to whole directories, which is")
+            print("    the expensive mistake. Open the file — it says what to do instead.")
+        else:
+            print("\n  Every root says where it came from. Read it before believing a number:")
+            print("    mcview --map          does the mass look like your system?")
+            print("    mcview --orient <X>   ask it something whose answer you already know")
+        print()
+        return
 
     # The config is DISCOVERED; it does not live inside the tool. See `config.discover`.
     if not args.config:

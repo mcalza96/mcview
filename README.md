@@ -114,20 +114,9 @@ The rest of this README, and every command block in the four skills, is written 
 # 1. copy the directory into your project
 cp -r mcview/ /path/to/your-project/
 
-# 2. write one mcview.toml at the root (the roots are the only mandatory part)
+# 2. derive a starter config from what the project already declares
 cd /path/to/your-project
-cat > mcview.toml <<'TOML'
-[project]
-name = "my-api"
-root = "src"
-
-[roots]
-decorators    = ["task", "command"]     # @task(...) registers into a dict → it is a root
-route_methods = ["get", "post"]         # @router.get(...) / @app.post(...)
-route_objects = ["router", "app"]
-dirs          = ["src/cli/", "tests/"]  # every module in here is a root
-product_dirs  = ["src/cli/"]            # of those, which ones are NOT tests
-TOML
+mcview/mcview.py --init        # writes mcview.toml — then READ it
 
 # 3. run it
 mcview/mcview.py                    # the census
@@ -136,10 +125,31 @@ mcview/mcview.py --orient <area>    # the brief for one area
 ```
 
 **Declaring the roots is half the work.** Without them, reachability declares the entire
-project dead. And they are not invented — the project already declares them somewhere:
-`[project.scripts]`, the `Dockerfile` `CMD`, the framework decorators that register into a
-dispatch dict. See [`skills/mcview-install`](skills/mcview-install/SKILL.md) for where to look
-and how to check the yardstick is not broken before believing a number.
+project dead — and that is the one thing `--init` cannot decide for you, because which entry
+points matter is a statement about the project, not about the file system.
+
+What it *can* do is stop you writing it from memory. It reads what the project already
+declares —`[project.scripts]`, the `Dockerfile` `CMD`, the decorators that register into a
+dispatch dict, the single `uvicorn.run`— and writes each root **with where it came from**:
+
+```toml
+[roots]
+#   mcp_tool: 168 uses in 28 files (e.g. api/v1/mcp_tools/ast_tools.py)
+decorators = ["mcp_tool"]
+#   candidate — `mcp_prompt`: 4 uses but only in 1 file. One file is not enough
+#   to declare a registry; look at it.
+```
+
+Measured against a config a human had written by hand for a 740-file backend: `--init`
+derived the two large root classes **exactly** (169 tools, 171 routes) and the same 6,186
+symbols. What it did not declare, it flagged as candidates with the file to look at — and the
+whole difference in the census was those flagged roots. It proposes; you decide.
+
+It never overwrites an existing `mcview.toml` (use `--force`), and `--init --json` shows what
+it would derive without writing anything.
+
+See [`skills/mcview-install`](skills/mcview-install/SKILL.md) for the four checks that tell you
+whether the yardstick is broken before you believe a number.
 
 Supports **Python** (stdlib `ast`) and **TypeScript/TSX** (`tree_sitter`, optional).
 Requires Python **3.11+** — that is where `tomllib` became stdlib, which is what keeps the

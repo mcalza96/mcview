@@ -29,9 +29,17 @@ my-project/
 ```
 
 ```bash
+mcview/mcview.py --init                       # derive a starter mcview.toml — then READ it
 mcview/mcview.py                              # the census — if this runs, it is installed
 mcview/selfcheck/check_portability.py         # proves the copy is self-sufficient
 ```
+
+**Start with `--init`, and then read what it wrote.** It does not replace the section below —
+it does the looking, and every root it writes carries the file it came from, so you are
+reviewing evidence instead of recalling a procedure. What it could not decide it leaves as a
+`# candidate —` comment with the file to open. If it found nothing real it says so loudly and
+falls back to whole directories, which is the expensive mistake described further down: that
+message is the signal to do this by hand.
 
 The config **is discovered** by walking up from the current directory, so it works from
 any subdirectory. Several projects in one workspace: `mcview.<name>.toml` and

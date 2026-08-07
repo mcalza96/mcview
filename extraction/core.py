@@ -139,6 +139,21 @@ class _Anonymizer(ast.NodeTransformer):
         return n
 
 
+def _read_outside(fn, name: str, comp) -> bool:
+    """Is `name` read anywhere in `fn` outside the line span of `comp`?
+
+    The cheap way to tell a throwaway comprehension variable from a name that also refers to
+    something real in the same function. Line spans, not scopes: a comprehension is a single
+    expression, so its span is exact and there is nothing to model.
+    """
+    lo, hi = comp.lineno, getattr(comp, "end_lineno", comp.lineno)
+    for x in ast.walk(fn):
+        if (isinstance(x, ast.Name) and x.id == name and isinstance(x.ctx, ast.Load)
+                and not (lo <= x.lineno <= hi)):
+            return True
+    return False
+
+
 def _own_bound(node) -> set[str]:
     """Names a function binds IN ITS OWN scope.
 
@@ -168,11 +183,46 @@ def _own_bound(node) -> set[str]:
         n = stack.pop()
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             continue                      # its interior is another scope; its name, a symbol
+        if isinstance(n, ast.Lambda):
+            # A lambda's parameters bind, and they were not registered — same class as the
+            # comprehension case below and found the same way: `sorted(out, key=lambda x:
+            # -x["fraccion"])` left `x` unbound, so every read of it resolved to whatever
+            # one-letter symbol the project happened to define. Same conservative rule: bind
+            # only when the name is read nowhere else in the function.
+            for a in n.args.args + n.args.posonlyargs + n.args.kwonlyargs:
+                if not _read_outside(node, a.arg, n):
+                    ligados.add(a.arg)
+            for extra in (n.args.vararg, n.args.kwarg):
+                if extra and not _read_outside(node, extra.arg, n):
+                    ligados.add(extra.arg)
+            stack.append(n.body)
+            stack.extend(n.args.defaults)
+            continue
+
         if isinstance(n, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
-            # In py3 a comprehension has ITS OWN SCOPE: `[x for x in …]` does not make `x`
-            # local to the function. Counting it would suppress a legitimate read of the
-            # homonymous global. The rest of the comprehension is walked (it may read real
-            # locals), skipping only the targets.
+
+            # A comprehension has ITS OWN SCOPE in py3, and that cuts both ways.
+            #
+            # Skipping the targets is right for the ENCLOSING function: `[x for x in …]` does
+            # not make `x` local to it, so a read of `x` afterwards legitimately refers to the
+            # outer symbol. Suppressing it would delete a real edge — the failure this filter's
+            # other four rules exist to avoid.
+            #
+            # But INSIDE the comprehension the target IS bound, and not registering it
+            # fabricated an edge carrying the strongest evidence there is: `[x for x in
+            # node.body if isinstance(x, ...)]` resolved every `x` to a one-letter function
+            # defined elsewhere in the project. Measured: 3 fabricated strong edges from one
+            # comprehension variable.
+            #
+            # So the target is bound only when it is read NOWHERE ELSE in this function. That
+            # covers the real case (a throwaway loop variable) and leaves the ambiguous one
+            # alone, which keeps the bias pointing at the false negative. A blanket binding was
+            # tried first and `check_reach` rejected it: its fixture reads the name after the
+            # comprehension, and that read is a legitimate reference.
+            for g in n.generators:
+                for t in ast.walk(g.target):
+                    if isinstance(t, ast.Name) and not _read_outside(node, t.id, n):
+                        ligados.add(t.id)
             stack.extend(g.iter for g in n.generators)
             stack.extend(c for g in n.generators for c in g.ifs)
             stack.extend(x for x in (getattr(n, "elt", None), getattr(n, "key", None),

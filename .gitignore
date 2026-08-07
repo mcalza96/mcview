@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+
+# The runtime census the probe leaves behind — per installation, never versioned.
+.mcview/
+
+# The golden baseline is recorded AGAINST a specific project: it holds that
+# project's file paths, symbol names and mass percentages. It is per
+# installation, like the census — record your own with:
+#     mcview/selfcheck/golden.py --grabar
+selfcheck/golden/

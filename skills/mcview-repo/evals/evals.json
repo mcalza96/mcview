@@ -1,0 +1,23 @@
+{
+  "skill_name": "mcview-repo",
+  "evals": [
+    {
+      "id": 0,
+      "name": "clean-a-module",
+      "prompt": "I want to strip out what is unused in <module/path>. Give me the concrete plan: what you would delete, in what order, and how you verify you are not breaking anything. Do NOT execute any deletion, just the plan.",
+      "expected_output": "A plan that uses the tool, prioritizes by connected components rather than by count, includes verification across every file kind plus dynamic imports, paired measurement, and treats DEAD_CANDIDATE as a hypothesis."
+    },
+    {
+      "id": 1,
+      "name": "evaluate-a-commit",
+      "prompt": "the repo's last commit — did it add value or add noise? I need to know whether it is worth it or whether it has to be reviewed",
+      "expected_output": "Uses --diff, reports typed signals separating the validated ones from the rest, and does not invent a single score."
+    },
+    {
+      "id": 2,
+      "name": "modularity",
+      "prompt": "is the backend well modularized? how many modules should it ideally have",
+      "expected_output": "Uses --k, reports Q and the optimal k, BUT warns that the concrete partition is not identifiable (degeneracy) and that Q is not validated against anything external."
+    }
+  ]
+}

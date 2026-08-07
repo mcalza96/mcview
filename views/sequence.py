@@ -105,6 +105,13 @@ def trace(weave, entry: str, rank: dict[str, float],
     return out
 
 
+def _collect_ids(n: dict, out: set[str]) -> None:
+    """The ids the narrative actually reached. Used to measure its own cut."""
+    out.add(n["id"])
+    for p in n["steps"]:
+        _collect_ids(p, out)
+
+
 def _count(n: dict) -> tuple[int, int]:
     seen = 1 if n.get("ejecutado") else 0
     total = 1
@@ -245,3 +252,130 @@ def collapse(n: dict, already_told: dict | None = None) -> dict:
 
 def _count_leaves(n: dict) -> int:
     return 1 + sum(_count_leaves(p) for p in n["steps"])
+
+
+# ------------------------------------------------------- the exhaustive mode
+# The narrative above answers "what happens, in what order" and pays for it by pruning: it
+# descends the heaviest call and counts what it left shut. That is the right trade for reading,
+# and the wrong one for "which edges can this flow take at all" — a question about a SET, not
+# about an order.
+#
+# It is NOT solved by ranking. Mass is what does the pruning here, and mass is *measured* not
+# to predict execution (AUC 0.506): ordering the edges by centrality would say which are
+# structurally central, never which the flow can traverse. The set is reachability, which the
+# liveness census already computes; the weight of each branch is the absorbing chain, which
+# `--decisions` already computes. Neither needed inventing — what was missing is an output.
+def reach_all(weave, entry: str, rank: dict[str, float], obs: dict[str, int] | None = None,
+              narrated: set[str] | None = None) -> dict:
+    """Everything reachable from an entry, grouped by line of work and weighted by the chain.
+
+    ALL the resolved symbols are entries, not the heaviest one. `--sequence` takes a single
+    origin because a narrative starts at a point; a reach set does not, and `expected_visits`
+    already accepts a set. For a surface declaring three router files, those three files ARE
+    the door — collapsing them to the heaviest would answer about one third of it.
+    """
+    ids, err = (weave.resolve(entry) if hasattr(weave, "resolve")
+                else _resolver_simple(weave, entry))
+    if err:
+        return {"error": err}
+
+    def clausura(aristas) -> set[str]:
+        frontier, vistos = set(ids), set(ids)
+        while frontier:
+            siguiente: set[str] = set()
+            for sid in frontier:
+                for d in aristas.get(sid, ()):
+                    if d not in vistos and d in weave.symbols:
+                        vistos.add(d)
+                        siguiente.add(d)
+            frontier = siguiente
+        return vistos
+
+    # TWO closures, and the difference is the finding. The complete graph resolves a reference
+    # by name even when several symbols share it, so a reach set built on it drags in whatever
+    # happens to be a homonym: measured from `Ingesta`, 553 symbols of `tests/unit` came out
+    # reachable carrying 22% of the expected visits, which is not the suite being called by the
+    # ingestion path — it is `get`, `run`, `main` resolving to the nearest namesake.
+    # The strong closure only follows names that belong to ONE symbol. Reporting both keeps the
+    # same grade-of-evidence contract the liveness census uses: the wide number fails open, and
+    # the narrow one says how much of it you can actually stand on.
+    alcanzables = clausura(weave.edges)
+    inequivocos = clausura(weave.strong_edges)
+
+    aristas = sum(1 for s in alcanzables for d in weave.edges.get(s, ()) if d in alcanzables)
+
+    visitas: dict[str, float] = {}
+    try:
+        import markov as _markov
+        P = _markov.transitions(weave, alcanzables)
+        visitas = _markov.expected_visits(P, set(ids))
+    except Exception:  # noqa: BLE001
+        # The weight is optional and the SET is not. Both run on the bare stdlib —
+        # `expected_visits` iterates the front instead of inverting the fundamental matrix
+        # precisely so that it does not need numpy — so this branch is not about a missing
+        # dependency; it is there so that an unforeseen failure in the chain costs the column
+        # and not the answer. When it fires the report says the set is unweighted rather than
+        # printing a column of zeros, which would read as "no flow goes there".
+        visitas = {}
+
+    total = sum(visitas.values()) or 1.0
+    por_linea: dict[str, dict] = {}
+    for sid in alcanzables:
+        linea = _lane(weave, sid)
+        fila = por_linea.setdefault(linea, {"line": linea, "symbols": 0, "unambiguous": 0,
+                                            "share": 0.0, "executed": 0})
+        fila["symbols"] += 1
+        if sid in inequivocos:
+            fila["unambiguous"] += 1
+        fila["share"] += visitas.get(sid, 0.0) / total
+        if obs is not None and sid in obs:
+            fila["executed"] += 1
+
+    filas = sorted(por_linea.values(), key=lambda x: (-x["share"], -x["symbols"]))
+    out = {"entry": entry, "entries": len(ids), "reachable": len(alcanzables),
+           "unambiguous": len(inequivocos),
+           "edges": aristas, "of_project": len(weave.symbols),
+           "weighted": bool(visitas), "lines": filas}
+    if obs is not None:
+        out["executed"] = sum(1 for s in alcanzables if s in obs)
+    if narrated is not None:
+        out["narrated"] = len(narrated & alcanzables)
+    return out
+
+
+def report_reach(weave, r: dict) -> str:
+    if "error" in r:
+        return f"\n  {r['error']}\n"
+    pct = 100 * r["reachable"] / max(r["of_project"], 1)
+    f = [f"\n  REACHABLE FROM — {r['entry']}   ({r['entries']} entry symbol(s))",
+         f"  {r['reachable']} symbols · {r['edges']} edges · {pct:.0f}% of the project",
+         f"  {r['unambiguous']} of them through UNAMBIGUOUS names "
+         f"({100*r['unambiguous']/max(r['reachable'],1):.0f}%) — the rest arrive only through "
+         f"a name\n  several symbols share, which is reach you cannot stand on\n"]
+    if r.get("narrated") is not None:
+        f.append(f"  the narrative (`--sequence` without `--all`) shows {r['narrated']} of "
+                 f"them — {100*r['narrated']/max(r['reachable'],1):.1f}%\n")
+    ancho = max((len(x["line"]) for x in r["lines"]), default=10)
+    cab = "  share" if r["weighted"] else ""
+    f.append(f"  {'line of work':{ancho}}  {'symbols':>8}  {'unamb':>6}{cab}"
+             + ("  executed" if "executed" in r else ""))
+    f.append("  " + "-" * (ancho + 26))
+    for x in r["lines"][:20]:
+        share = f"  {100*x['share']:5.1f}%" if r["weighted"] else ""
+        vis = f"  {x['executed']:8}" if "executed" in r else ""
+        f.append(f"  {x['line'][:ancho]:{ancho}}  {x['symbols']:8}  "
+                 f"{x['unambiguous']:6}{share}{vis}")
+    if len(r["lines"]) > 20:
+        f.append(f"  … and {len(r['lines']) - 20} more lines of work")
+
+    f += ["",
+          "  This is what the flow CAN traverse, not what it does. The set is reachability",
+          "  over the WRITTEN call graph: a call inside an `if` is in here, and one made by",
+          "  dynamic dispatch is not."]
+    if not r["weighted"]:
+        f.append("  No share column: the chain could not be built. The set above is "
+                 "complete — it is the weighting that is missing, not the reach.")
+    if "executed" in r:
+        f.append(f"  {r['executed']} of them were seen executing — that CONFIRMS, it never "
+                 f"rules out.")
+    return "\n".join(f) + "\n"

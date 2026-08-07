@@ -111,6 +111,7 @@ table below](#what-each-number-does-not-claim).
 |---|---|---|
 | What is this area and how does it work? | `--orient <target> --flow` | `mcview_orient` |
 | What happens, and in what order? | `--sequence <target> --to <dest>` | `mcview_process` |
+| Which edges CAN the flow traverse? | `--sequence <target> --all` | — |
 | What can a request traverse, across repos? | `--route "<name>"` | `mcview_route` |
 | Does this already exist? | `--exists <file>` | `mcview_exists` |
 | Where does the system go? | `--map` | `mcview_map` |
@@ -340,6 +341,37 @@ the graph says it is used, when what holds it up is a homonym or its own test.
 
 The whole chain is fail-open: when in doubt, alive. False "dead" costs something; false "alive"
 costs a review.
+
+### The narrative, and the set it cuts out of
+
+`--sequence` answers *what happens and in what order*. To stay readable it descends the heaviest
+call at each level, so it is a **narrative with a cut**. `--all` answers the other question —
+*which edges can this flow take at all* — and it is a **set**, not an order:
+
+```
+  REACHABLE FROM — Ingesta   (256 entry symbols)
+  2003 symbols · 51516 edges · 32% of the project
+  447 of them through UNAMBIGUOUS names (22%)
+
+  the narrative (`--sequence` without `--all`) shows 11 of them — 0.5%
+
+  line of work            symbols   unamb   share
+  Ingesta                     256     256   61.0%
+  tests/unit                  553       1   22.2%
+  Recuperación                110      80    1.7%
+```
+
+Two things there are the point. **The cut is now a number**: the readable narrative covers 0.5%
+of the reach, and a cut whose size is unknown reads as if it were everything. And the reach is
+reported at **two grades of evidence**, the same contract the liveness census uses — the wide
+closure follows any resolved name, the narrow one only names belonging to a single symbol. Look
+at `tests/unit`: 553 symbols reachable, **1** of them unambiguously. That is not the suite being
+called by the ingestion path, it is `get`, `run` and `main` landing on the nearest namesake.
+
+This is not a ranking problem, which is why mass does not solve it: PageRank is what *does* the
+pruning, and it is measured not to predict execution. The set comes from reachability and the
+share from the absorbing chain — both already in the tool, neither needing numpy. What was
+missing was an output.
 
 ---
 

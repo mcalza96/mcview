@@ -30,6 +30,7 @@ mcview/mcview.py --route "<name declared in mcview.workspace.toml>"
 # what happens and in what order
 mcview/mcview.py --sequence <target>
 mcview/mcview.py --sequence <target> --to <destination>    # without pruning by mass
+mcview/mcview.py --sequence <target> --all                 # every edge it CAN traverse
 mcview/mcview.py --sequence "<proj>▸<target>" --to "<proj>▸<destination>"   # across repos
 
 # confirm against actual execution

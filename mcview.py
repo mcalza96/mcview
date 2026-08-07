@@ -141,6 +141,9 @@ def main():
     ap.add_argument("--to", dest="to", metavar="TARGET",
                     help="with --sequence: narrate EVERYTHING leading to the target, without "
                          "pruning by mass")
+    ap.add_argument("--all", dest="todas", action="store_true",
+                    help="with --sequence: every edge the flow CAN traverse (a set, not a "
+                         "narrative) — grouped by line of work and weighted by the chain")
     ap.add_argument("--runtime", action="store_true",
                     help="mark which steps were seen executing (it confirms, it never rules out)")
     ap.add_argument("--route", metavar="NAME",
@@ -745,6 +748,22 @@ def main():
             if not obs:
                 print("  no runtime census in .mcview/ or .salud/ — the steps go unmarked "
                       "(absence of evidence, not evidence of absence)\n")
+        if args.todas:
+            # The narrative is computed anyway, and cheaply, so the exhaustive view can say
+            # what FRACTION of the reach it shows. A cut whose size is unknown is the one
+            # that reads as if it were everything.
+            narrado = _sec.trace(base, args.sequence, _heatmap.pagerank(base),
+                                 depth=args.depth, obs=obs)
+            vistos = set()
+            if "tree" in narrado:
+                _sec._collect_ids(narrado["tree"], vistos)
+            r = _sec.reach_all(base, args.sequence, _heatmap.pagerank(base), obs=obs,
+                               narrated=vistos)
+            if args.json:
+                print(_json.dumps(r, ensure_ascii=False, indent=2))
+            else:
+                print(_sec.report_reach(base, r))
+            return
         r = _sec.trace(base, args.sequence, _heatmap.pagerank(base), depth=args.depth,
                         dst=args.to, obs=obs)
         if args.json:

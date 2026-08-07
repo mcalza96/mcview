@@ -227,7 +227,17 @@ def main() -> int:
                 if mark not in output:
                     failures.append(f"the brief is missing the `{mark}` section")
 
-        # --- el diagrama sale bien formado --------------------------------
+        # --- the exhaustive reach mode runs and counts its own cut --------
+        # It is exercised here because the sibling view `--decisions` shipped broken and had
+        # NEVER run: a name held two things and it crashed on every call, with no lock
+        # touching it. A view that no check executes is a view nobody knows is alive.
+        code, output = _run(d, d, "--sequence", "Datos", "--all")
+        if code != 0 or "REACHABLE FROM" not in output:
+            failures.append(f"--sequence --all failed: {output.strip()[:160]}")
+        elif "UNAMBIGUOUS names" not in output:
+            failures.append("--sequence --all lost the unambiguous-reach split")
+
+        # --- the diagram comes out well formed ----------------------------
         code, output = _run(d, d, "--orient", "Datos", "--no-twins",
                                "--flow", "--mermaid")
         if code != 0 or not output.lstrip().startswith("flowchart"):

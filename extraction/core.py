@@ -322,6 +322,24 @@ class Project:
         self._alias: dict[str, dict[str, str]] = {}
         self._arboles: dict[str, ast.AST] = {}
         self._build()
+        # STEP 4 — THE DECLARED DOORS ARE ROOTS. It runs HERE and not inside `_build` because the TypeScript path overrides `_build`
+        # entirely: the step lived in the Python one, so on a filesystem-routed frontend the
+        # doors resolved, were reported as doors, and seeded nothing. `__init__` is the point
+        # both parsers pass through. It needs the inventory:
+        # a surface names symbols, and until step 1 finished there were none to name.
+        #
+        # Why it is worth its own step. A file listed in `dirs` makes EVERY symbol in it a
+        # root, which is right for a directory loaded by name and wrong for an entry point:
+        # measured on a gateway, eight entry FILES contributed 1,234 roots where the project's
+        # own `[project.scripts]` declares eight `main`s. With everything an entrance there is
+        # no "how do you get in", and the heat map ends up measuring the files you declared
+        # instead of where a message arrives — its top three were the declared files
+        # themselves, and became the three platform adapters once the doors were exact.
+        #
+        # Cost of the precision, measured on the same project: 8 symbols move to
+        # DEAD_CANDIDATE, one of them a module-level `__getattr__` that Python calls itself.
+        # They were alive because their FILE was a root, not because anything reaches them.
+        self._seed_from_surfaces()
 
     # -- route ---------------------------------------------------------
     def _files(self):
@@ -366,21 +384,6 @@ class Project:
         for rel, tree in self._arboles.items():
             self._analyze(rel, tree)
 
-        # step 4 — THE DECLARED DOORS ARE ROOTS. It runs last because it needs the inventory:
-        # a surface names symbols, and until step 1 finished there were none to name.
-        #
-        # Why it is worth its own step. A file listed in `dirs` makes EVERY symbol in it a
-        # root, which is right for a directory loaded by name and wrong for an entry point:
-        # measured on a gateway, eight entry FILES contributed 1,234 roots where the project's
-        # own `[project.scripts]` declares eight `main`s. With everything an entrance there is
-        # no "how do you get in", and the heat map ends up measuring the files you declared
-        # instead of where a message arrives — its top three were the declared files
-        # themselves, and became the three platform adapters once the doors were exact.
-        #
-        # Cost of the precision, measured on the same project: 8 symbols move to
-        # DEAD_CANDIDATE, one of them a module-level `__getattr__` that Python calls itself.
-        # They were alive because their FILE was a root, not because anything reaches them.
-        self._seed_from_surfaces()
 
     def _seed_from_surfaces(self) -> None:
         """`[surfaces]` → roots. A door is a door whether or not it is also in `dirs`."""
@@ -392,6 +395,12 @@ class Project:
                 file_of, symbol = split_surface_target(t)
                 ids = {sid for sid, s in self.symbols.items()
                        if s.name == symbol and (not file_of or s.file == file_of)}
+                if not ids:
+                    # A door is often a FILE — in a filesystem-routed framework that is the
+                    # only way to name it, because every one of them is called `page.tsx`.
+                    # Matching symbol names only made those declarations a silent no-op: they
+                    # resolved, they were reported as doors, and they seeded nothing.
+                    ids = {sid for sid, s in self.symbols.items() if s.file == t}
                 if not ids:
                     continue
                 self.roots |= ids

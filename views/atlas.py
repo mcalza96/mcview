@@ -232,13 +232,17 @@ def from_surface(project, surface: str):
     cfg = project.cfg
     targets = cfg.surfaces.get(surface)
     if not targets:
+        # FOUR values on every path. The happy path returned four and both error paths
+        # returned three, so the caller's unpack turned any surface-resolution failure into a
+        # raw traceback — swallowing the message this function had carefully written. The
+        # error was reachable and useful; nobody ever saw it.
         return set(), set(), (f"«{surface}» is not declared. Surfaces: "
-                              f"{', '.join(sorted(cfg.surfaces)) or '(none declared)'}")
+                              f"{', '.join(sorted(cfg.surfaces)) or '(none declared)'}"), None
     entries: set[str] = set()
     for o in targets:
         ids, err = _cand._resolve(project, o)
         if err:
-            return set(), set(), err
+            return set(), set(), err, None
         entries |= ids
 
     reachable = set(depths(project, entries))

@@ -227,6 +227,19 @@ def main() -> int:
                 if mark not in output:
                     failures.append(f"the brief is missing the `{mark}` section")
 
+        # --- the diagram skeleton runs and refuses to invent -------------
+        code, output = _run(d, d, "--blueprint")
+        if code != 0 or "BLUEPRINT" not in output:
+            failures.append(f"--blueprint failed: {output.strip()[:160]}")
+        else:
+            # `responsibility` empty is the CONTRACT, not an oversight: the moment this file
+            # starts filling it in, the tool is guessing what a module is for.
+            if "to be named" not in output:
+                failures.append("--blueprint filled in `responsibility` — that is the one "
+                                "field it must leave for whoever draws the diagram")
+            if "CUTS" in output and "do not draw an arrow across" not in output:
+                failures.append("--blueprint lost the instruction about cuts")
+
         # --- the exhaustive reach mode runs and counts its own cut --------
         # It is exercised here because the sibling view `--decisions` shipped broken and had
         # NEVER run: a name held two things and it crashed on every call, with no lock

@@ -141,6 +141,10 @@ def main():
     ap.add_argument("--to", dest="to", metavar="TARGET",
                     help="with --sequence: narrate EVERYTHING leading to the target, without "
                          "pruning by mass")
+    ap.add_argument("--blueprint", action="store_true",
+                    help="the skeleton of a conceptual diagram: nodes, edges with their grade "
+                         "of evidence, doors and CUTS — everything except what each one is "
+                         "FOR, which is the one part no measurement gives")
     ap.add_argument("--all", dest="todas", action="store_true",
                     help="with --sequence: every edge the flow CAN traverse (a set, not a "
                          "narrative) — grouped by line of work and weighted by the chain")
@@ -467,6 +471,16 @@ def main():
             print(_json.dumps(bridges, ensure_ascii=False, indent=2))
             return
         _seams.print_bridges(bridges, cats)
+        return
+
+    if args.blueprint:
+        import blueprint as _bp
+        obs = None
+        if args.runtime:
+            import runtime as _rt
+            obs = _rt.observed(project, cfg.root)
+        r = _bp.build(project, _heatmap.pagerank(project), obs=obs)
+        print(_json.dumps(r, ensure_ascii=False, indent=2) if args.json else _bp.report(r))
         return
 
     if args.reach:

@@ -326,6 +326,22 @@ TOOLS = [
         "project": _PROJECT, "projectPath": _PATH},
        ["content"]),
 
+    _t("mcview_blueprint",
+       "THE SKELETON OF A CONCEPTUAL DIAGRAM — call this when you have to DRAW how the system "
+       "works for somebody who is not going to read the code. It returns the nodes (lines of "
+       "work), the edges between them with TWO counts, the doors a user enters through, and "
+       "the CUTS where the graph provably stops. It deliberately leaves `responsibility` empty "
+       "on every node: that is your job, and it is the only part of the drawing no measurement "
+       "gives.\n"
+       "THE CONTRACT, and it is not advice: do NOT add a node or an edge that is not in this "
+       "output. Whoever reads your diagram is not going to check it against the code — an "
+       "invented connection is worse for them than no diagram at all. An edge with "
+       "`unambiguous: 0` resolved only through a shared name (measured on a real repo: 208 "
+       "references between two modules, all of them the word `get`) — draw it dashed or leave "
+       "it out. And draw the cuts AS CUTS: past a dispatch the target is chosen by name, and "
+       "an arrow across it invents a call that does not happen.",
+       {"project": _PROJECT, "projectPath": _PATH}, []),
+
     _t("mcview_map",
        "Where the system goes: usage mass per file, computed as a random walk seeded at the "
        "declared entry points. Answers 'what is central here'. Read the caveat — this is "
@@ -519,6 +535,10 @@ def call(name: str, a: dict) -> dict:
         r = _index.query(idx, a["content"], a.get("path", "<new>"))
         r["caveat"] = CAVEAT["twins"]
         return r
+
+    if name == "mcview_blueprint":
+        import blueprint as _bp
+        return _bp.build(project, _heatmap.pagerank(project))
 
     if name == "mcview_map":
         rank = _heatmap.pagerank(project)

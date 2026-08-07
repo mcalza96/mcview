@@ -227,6 +227,28 @@ def main() -> int:
                 if mark not in output:
                     failures.append(f"the brief is missing the `{mark}` section")
 
+        # --- the walkthrough draws, and REFUSES when a stage is invented --
+        spec = os.path.join(d, "wt.toml")
+        with open(spec, "w", encoding="utf-8") as fh:
+            fh.write('title = "t"\n[[lane]]\nid = "a"\ntitle = "a"\n'
+                     '[[stage]]\nlane = "a"\ntitle = "s"\nverify = "Datos"\n'
+                     '[[cut]]\nafter = "a"\ntext = "corte"\n')
+        code, output = _run(d, d, "--walkthrough", spec)
+        if code != 0 or not output.lstrip().startswith("<svg"):
+            failures.append(f"--walkthrough failed: {output.strip()[:160]}")
+        else:
+            for mark in ("viewBox", "corte", "NO afirma"):
+                if mark not in output:
+                    failures.append(f"--walkthrough lost `{mark}` from the figure")
+        # An invented stage must STOP it. A figure with one box nobody can check is the
+        # failure this view exists to prevent, and its reader will not notice.
+        with open(spec, "w", encoding="utf-8") as fh:
+            fh.write('title = "t"\n[[lane]]\nid = "a"\ntitle = "a"\n'
+                     '[[stage]]\nlane = "a"\ntitle = "s"\nverify = "no_existe_xyz"\n')
+        code, output = _run(d, d, "--walkthrough", spec)
+        if code == 0:
+            failures.append("--walkthrough drew a stage that does not resolve")
+
         # --- the diagram skeleton runs and refuses to invent -------------
         code, output = _run(d, d, "--blueprint")
         if code != 0 or "BLUEPRINT" not in output:

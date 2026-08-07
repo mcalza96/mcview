@@ -113,6 +113,7 @@ table below](#what-each-number-does-not-claim).
 | What happens, and in what order? | `--sequence <target> --to <dest>` | `mcview_process` |
 | Which edges CAN the flow traverse? | `--sequence <target> --all` | — |
 | Draw how this works, for someone who will not read the code | `--blueprint` | `mcview_blueprint` |
+| The JOURNEY as a figure, from a spec you write | `--walkthrough <spec.toml>` | — |
 | What can a request traverse, across repos? | `--route "<name>"` | `mcview_route` |
 | Does this already exist? | `--exists <file>` | `mcview_exists` |
 | Where does the system go? | `--map` | `mcview_map` |

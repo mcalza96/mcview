@@ -41,6 +41,8 @@ import factory as _factory        # noqa: E402
 
 import orient as _orient  # noqa: E402
 
+_CFG = [""]
+
 ORDEN = ["ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "ALIVE_NOT_PRODUCT",
          "ALIVE_BY_NESTING", "DEAD_CANDIDATE"]
 
@@ -84,6 +86,12 @@ def _workspace_configs(root: str) -> dict:
         if label != "workspace":
             out[label] = f
     return out
+
+
+def CACHE_WEAVE():
+    """The weave, for a walkthrough whose stages cross repositories."""
+    import weave as _tej
+    return _tej.build(_workspace_configs(os.path.dirname(os.path.abspath(_CFG[0]))))
 
 
 def main():
@@ -141,6 +149,11 @@ def main():
     ap.add_argument("--to", dest="to", metavar="TARGET",
                     help="with --sequence: narrate EVERYTHING leading to the target, without "
                          "pruning by mass")
+    ap.add_argument("--walkthrough", metavar="SPEC",
+                    help="a JOURNEY as a figure from a .toml of lanes and stages: verifies "
+                         "every stage resolves, draws the cuts as cuts, prints the caveats. "
+                         "SVG to stdout; add --png to also rasterise if a converter exists")
+    ap.add_argument("--png", metavar="FILE", help="with --walkthrough: also write a PNG")
     ap.add_argument("--blueprint", action="store_true",
                     help="the skeleton of a conceptual diagram: nodes, edges with their grade "
                          "of evidence, doors and CUTS — everything except what each one is "
@@ -236,6 +249,7 @@ def main():
     # The config is DISCOVERED; it does not live inside the tool. See `config.discover`.
     if not args.config:
         args.config = _config.discover(args.project)
+    _CFG[0] = args.config or ""
     if not args.config or not os.path.exists(args.config):
         which = f"mcview.{args.project}.toml" if args.project else "mcview.toml"
         sys.exit(f"could not find {which} walking up from {os.getcwd()}.\n"
@@ -471,6 +485,29 @@ def main():
             print(_json.dumps(bridges, ensure_ascii=False, indent=2))
             return
         _seams.print_bridges(bridges, cats)
+        return
+
+    if args.walkthrough:
+        import walkthrough as _wt
+        import blueprint as _bp
+        base = project
+        spec = _wt.load(args.walkthrough)
+        if any("▸" in (st.get("verify") or "") for st in spec.get("stage", [])):
+            base = CACHE_WEAVE()
+        fallas = _wt.verify(base, spec)
+        if fallas:
+            # It refuses instead of drawing what it could. A figure with one invented box is
+            # worse than none: its reader is by construction someone who will not check it.
+            sys.exit("  the walkthrough does not check out:\n    " + "\n    ".join(fallas))
+        r = _bp.build(base, _heatmap.pagerank(base))
+        svg = _wt.draw(spec, r["cuts"], r["caveats"])
+        if args.png:
+            hecho = _wt.to_png(svg, args.png)
+            print(f"  wrote {hecho}" if hecho else
+                  "  no converter (rsvg-convert / cairosvg): PNG skipped, SVG below")
+            if hecho:
+                return
+        print(svg)
         return
 
     if args.blueprint:

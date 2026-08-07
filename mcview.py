@@ -38,7 +38,6 @@ import diff as _dif        # noqa: E402
 import index as _index          # noqa: E402
 import heatmap as _heatmap              # noqa: E402
 import factory as _factory        # noqa: E402
-import core as _nucleo          # noqa: E402
 
 import orient as _orient  # noqa: E402
 
@@ -72,29 +71,6 @@ def require_algebra(view: str):
             "The rest of the tool (census, --map, --orient, --flow, the gate) does "
             f"not need them.\n({e})"
         ) from e
-
-
-def load_runtime(cfg) -> tuple[set[tuple[str, str]], int]:
-    """Reads the probe census. It only PROMOTES to alive, never demotes to dead."""
-    ejecutados: set[tuple[str, str]] = set()
-    t_min = t_max = None
-    for arch in glob.glob(os.path.join(cfg.root, ".mcview", "*.jsonl")):
-        for line in open(arch, encoding="utf-8"):
-            try:
-                r = _json.loads(line)
-            except ValueError:
-                continue
-            path = r.get("f", "")
-            for prefijo in ("/app/", cfg.root + "/"):
-                if path.startswith(prefijo):
-                    path = path[len(prefijo):]
-                    break
-            ejecutados.add((path, r.get("q", "").split(".<locals>.")[-1].split(".")[-1]))
-            t = r.get("t")
-            if t:
-                t_min = t if t_min is None else min(t_min, t)
-                t_max = t if t_max is None else max(t_max, t)
-    return ejecutados, (t_max - t_min) if (t_min and t_max) else 0
 
 
 def _workspace_configs(root: str) -> dict:
@@ -323,10 +299,15 @@ def main():
     cfg = _config.load(args.config)
     project = _factory.make_project(cfg)
     levels = project.levels()
-    ejecutados, window = load_runtime(cfg)
-
-    proven = {sid for sid, s in project.symbols.items()
-                if (s.file, s.name) in ejecutados}
+    # ONE reader for the probe census. There used to be a second one here that globbed only
+    # `.mcview/` and stripped a hardcoded `/app/` prefix, while `graph/runtime.py` reads
+    # `.mcview/` AND `.salud/` and trims by the longest known suffix. They drifted, and the
+    # symptom was silent: this view printed "no census" with 177 symbols confirmed on disk.
+    # Deleting the duplicate is the fix — a second reader cannot drift if it does not exist.
+    import runtime as _rt
+    obs = _rt.observed(project, cfg.root)
+    proven = set(obs)
+    window = _rt.summary(project, obs)["window_s"]
 
     if args.views:
         require_algebra("--views")

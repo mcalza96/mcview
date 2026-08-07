@@ -193,6 +193,14 @@ Read the divergence before pinning it. On Python the two agree to within 0.2%; a
 from that is either a real parser gap or a scoping mistake in the comparison, and pinning it
 unread turns the lock into a rubber stamp.
 
+**Before finishing, ask about the doors.** `--init` writes the `[surfaces]` candidates commented
+out because which files are "the web app" against "the Telegram webhook" is a statement about
+the product and nothing in the file system knows it. That block is not optional decoration: with
+no surfaces, any flow starting from a module begins at its heaviest symbol — a guess dressed as
+an entry point, and measured once, that guess landed on an output formatter. Bring the user the
+candidate list and ask them to name and group them. It is the last thing this skill leaves
+undone, and the only one that silently degrades every later answer.
+
 Finally, confirm the tool answers the SAME thing twice. It sounds too obvious to check and it
 was not: twenty-three views were compared and six of them differed between two runs over
 identical code, one of them moving a computed percentage from 67% to 72%.

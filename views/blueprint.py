@@ -242,3 +242,45 @@ def report(r: dict) -> str:
             f.append(f"  {c['kind']}: {c.get('at') or c.get('id')}")
     f.append("\n  --json gives the whole thing, with per-edge evidence and the caveats.")
     return "\n".join(f) + "\n"
+
+
+def door_candidates(project, top: int = 8) -> tuple[list[str], str]:
+    """The files that could be doors, and the QUESTION to ask about them.
+
+    A warning that nobody acts on is not a warning. Measured: an agent tracing a flow saw
+    "no [surfaces] declared: this origin was CHOSEN BY MASS", continued anyway, produced an
+    analysis that started at the output formatter, and mentioned the caveat at the end. The
+    warning was true and it changed nothing — because it said what was wrong and not what to
+    do about it, and the data needed to act was one call away.
+
+    So the output carries the question already formed and the candidates already listed. The
+    tool cannot ask —it is not conversational— but it can leave nothing to invent.
+
+    It reads `roots_by_reason`, which the project already computed: free, no second parse.
+    """
+    from collections import Counter
+
+    puertas: Counter = Counter()
+    for razon, ids in project.roots_by_reason.items():
+        if razon == "root_module":
+            continue                    # a whole directory declared as root is not a door
+        for sid in ids:
+            s = project.symbols.get(sid)
+            if s:
+                puertas[s.file] += 1
+
+    if puertas:
+        return ([f"{a}  ({n} entradas)" for a, n in puertas.most_common(top)],
+                "ASK THE USER which of these files are the doors of the product and how to "
+                "GROUP them (\"the web app\", \"the Telegram webhook\"). The grouping is a "
+                "statement about the product; nothing in the code knows it. Then declare them "
+                "under [surfaces] and run this again.")
+
+    # No route or handler roots at all: the roots came from declaring directories, which is a
+    # bigger problem than the missing surfaces and has to be said first — otherwise the user
+    # is asked to name doors in a project where everything is already an entrance.
+    n = len(project.roots_by_reason.get("root_module", ()))
+    return ([], f"There are no route or handler roots to propose: all {n} roots come from "
+                f"declaring DIRECTORIES in `dirs`. When everything is an entrance there is no "
+                f"'how do you get in', and surfaces will not fix that. ASK THE USER what really "
+                f"starts this project — `mcview --init` finds it — before trusting any flow.")

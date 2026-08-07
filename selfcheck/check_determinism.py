@@ -68,11 +68,29 @@ def _render(cfg_path: str) -> dict[str, str]:
     import json as _json
 
     cfg = _config.load(cfg_path)
+
+    # A FINGERPRINT OF THE TREE, emitted with the results. This lock compares two processes,
+    # and it silently assumed the code would hold still between them — on a repository where
+    # somebody else is working, it does not. Measured: two consecutive runs failed on
+    # DIFFERENT views while two files were being edited underneath, which reads exactly like
+    # non-determinism and is not. A lock that fabricates a catastrophe trains you to ignore it,
+    # which is worse than not having one.
+    huella = hashlib.sha256()
+    for dirpath, dirnames, filenames in os.walk(cfg.root):
+        dirnames[:] = sorted(d for d in dirnames if d not in cfg.ignored_dirs)
+        for nombre in sorted(filenames):
+            ruta = os.path.join(dirpath, nombre)
+            try:
+                st = os.stat(ruta)
+            except OSError:
+                continue
+            huella.update(f"{ruta}:{st.st_mtime_ns}:{st.st_size}".encode())
+
     project = _factory.make_project(cfg)          # ← ONCE. The whole point of this file.
     rank = _heatmap.pagerank(project)
     levels = project.levels()
 
-    out: dict[str, str] = {}
+    out: dict[str, str] = {"__tree": huella.hexdigest()[:16]}
 
     def firma(nombre: str, texto: str):
         out[nombre] = hashlib.sha256(texto.encode("utf-8")).hexdigest()[:16]
@@ -142,12 +160,21 @@ def main() -> int:
         salidas.append(dict(l.split("\t") for l in r.stdout.strip().splitlines() if "\t" in l))
 
     a, b = salidas
+    # The tree first, and it is not one failure among others: if the code moved, EVERY
+    # difference below is unexplained and reporting them as non-determinism would be a lie
+    # with hashes behind it.
+    if a.get("__tree") != b.get("__tree"):
+        print("  ~ INCONCLUSIVE: the source tree changed between the two passes, so any "
+              "difference is unattributable.\n    Re-run on a quiet tree — this needs the code "
+              "to hold still, and it does not check\n    determinism against a moving target.")
+        return 0
+
     fallas = [f"{k}: the output depends on PYTHONHASHSEED ({a[k]} vs {b[k]})"
-              for k in sorted(a) if a.get(k) != b.get(k)]
+              for k in sorted(a) if k != "__tree" and a.get(k) != b.get(k)]
     for f in fallas:
         print(f"  ✗ {f}")
     if not fallas:
-        print(f"  ✓ determinism: {len(a)} views identical under PYTHONHASHSEED "
+        print(f"  ✓ determinism: {len(a) - 1} views identical under PYTHONHASHSEED "
               f"{' and '.join(SEEDS)} · {os.path.basename(cfg)}")
     return 1 if fallas else 0
 

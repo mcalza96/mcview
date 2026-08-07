@@ -61,9 +61,19 @@ checks the first does not. Each step below exists to prevent one specific way of
 confidently wrong; run them in order and read what the tool tells you rather than what you
 expected.
 
-**Check where the walk begins.** If the output warns that no `[surfaces]` are declared, the
-origin was chosen by MASS — an inference, not a door. Everything downstream is conditioned on
-it. Either declare the entry points or say in your report that the starting point was inferred.
+**Check where the walk begins, and STOP if it was not declared.** If the output warns that no
+`[surfaces]` are declared, the origin was chosen by MASS — an inference, not a door — and
+everything downstream is conditioned on it. The warning comes with the candidate files already
+listed and the question already written: **ask the user, do not continue.**
+
+This is not caution for its own sake. It was measured: an agent tracing a flow saw that exact
+warning, continued anyway, produced an analysis whose entry point turned out to be the OUTPUT
+formatter, and mentioned the caveat at the end — where it no longer protects anyone. A flow that
+starts in the wrong place is not a partial answer, it is a wrong one.
+
+If the warning says instead that all the roots come from declaring DIRECTORIES, the problem is
+bigger and surfaces will not fix it: when everything is an entrance there is no "how do you get
+in". Ask what really starts the project first.
 
 **Ask for the SET before the narrative.**
 

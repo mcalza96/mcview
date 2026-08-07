@@ -147,8 +147,12 @@ def report(weave, r: dict) -> str:
     # included, is conditioned on it. Saying so costs two lines; not saying so makes a guess
     # read like a fact.
     if r["of_candidates"] > 1 and not getattr(weave.cfg, "surfaces", None):
+        import blueprint as _bp
+        cands, pregunta = _bp.door_candidates(weave)
         f += ["  \u26a0 no [surfaces] declared: this origin was CHOSEN BY MASS, not by a door.",
-              "    Naming the real entry points in the .toml changes where this walk begins.\n"]
+              "    Everything below is conditioned on a starting point nobody declared.", ""]
+        f += [f"      {c}" for c in cands]
+        f += ["", "    " + pregunta, ""]
 
     def descend(n: dict, depth_lvl: int):
         indent = "   " + "  " * depth_lvl

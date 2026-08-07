@@ -51,8 +51,12 @@ def build(weave, src: str, dst: str, statuses: dict[str, str],
         bifurca = _markov.annotate_with_runtime(bifurca, obs)
     ids_bifurca = {b["id"] for b in bifurca}
 
-    depth = _atlas.depths(weave, r["origin"])
-    depth = max((depth.get(s, 0) for s in inside), default=0)
+    # TWO names, and they used to be one. `depth` held the per-symbol dict and was then
+    # overwritten with its maximum, so every later `depth.get(...)` was a dict method on an
+    # int and this view crashed on every call — it had never run. Same class as a local
+    # shadowing a builtin: the collision is invisible until the second use.
+    profundidad = _atlas.depths(weave, r["origin"])
+    mas_honda = max((profundidad.get(s, 0) for s in inside), default=0)
 
     nodes = []
     total = sum(visitas.values()) or 1.0
@@ -68,8 +72,8 @@ def build(weave, src: str, dst: str, statuses: dict[str, str],
             "lane": lane,
             # The axis: inverted because the canvas draws layer 0 at the bottom and a decision
             # tree is read from the entry toward the leaves.
-            "layer": max(0, depth - depth.get(sid, depth)),
-            "symbols": 1, "statuses": {}, "sueltos": 0, "depth": depth.get(sid, -1),
+            "layer": max(0, mas_honda - profundidad.get(sid, mas_honda)),
+            "symbols": 1, "statuses": {}, "sueltos": 0, "depth": profundidad.get(sid, -1),
         }
         if sid in r["origin"]:
             n["entry"] = True

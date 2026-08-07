@@ -704,6 +704,14 @@ def main():
 
     if args.sequence and args.decisions:
         import weave as _tej, decisions as _dec
+        # `--decisions` needs a destination: a decision tree without a leaf is a walk. Without
+        # this, `--to` defaulted to "" and the weave's resolver reported «» must be
+        # «project▸target» — a message that blames the format of the argument you DID pass for
+        # the absence of the one you did not, and sends you to fix the wrong thing.
+        if not args.to:
+            sys.exit("  --decisions needs --to: the tree is built between an entry and a "
+                     "destination.\n  e.g. --sequence 'principal▸Ingesta' "
+                     "--to 'principal▸services/enrichment_service.py'")
         weave = _tej.build(_workspace_configs(
             os.path.dirname(os.path.abspath(args.config))))
         status_map = {s: e for e, ss in weave.levels().items() for s in ss}

@@ -96,8 +96,30 @@ CAVEAT = {
 INSTRUCTIONS = """\
 # mcview — structural understanding, computed from today's AST
 
-Every answer is computed from the code as it is right now, so it cannot be stale. Use it
-BEFORE writing code, not to explain code you already read.
+## What this is for, and what it is not
+
+**It exists to orient YOU while you work.** You are about to touch a repository you do not
+hold in your head. mcview tells you what is there, computed from the code as it is right
+now — so you build and audit with more discipline and less flailing, and you do it faster
+than by reading twenty files to find the three that matter.
+
+That is the whole purpose. In particular:
+
+- **It does not run a health check on the repo.** It has no opinion about quality. It
+  reports mass, reachability, duplication and cohesion; whether any of that is a *problem*
+  depends on what the project is for, and it does not know that.
+- **It does not decide anything, and it never authorises a change.** `DEAD_CANDIDATE` is a
+  hypothesis, not a deletion order. A duplicate is a shape, not debt. No output of this tool
+  is grounds for deleting, refactoring or approving on its own.
+- **It does not replace reading the code.** It tells you WHICH code to read. Every view ends
+  by pointing at a concrete path precisely so you go and verify it.
+
+The decisions stay with the user and the reading stays with you. What moves here is the
+COST of being disciplined: what used to require holding the repo in your head, or trusting
+documentation that drifted, is now a measurement you can take in one call and cite.
+
+Every answer is computed from today's AST, so it cannot be stale. Use it BEFORE writing
+code, not to explain code you already read.
 
 ## Where to start
 

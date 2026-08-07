@@ -23,6 +23,12 @@ description: >-
 rots —who calls what, what is dead, where the system goes— because it cannot be out of date
 by construction.
 
+**It orients you; it does not decide for you.** It is not a health check and it has no
+opinion about quality: it says what is there so you work with more discipline and less
+flailing. What it points at still has to be read, and what to do about it is the user's
+call. Cite its numbers with the caveat attached — a number from here reported as a verdict
+is the one failure mode this tool was built to prevent.
+
 ```bash
 # get located (first thing, almost always). The target resolves in this order:
 mcview/mcview.py --orient "<Declared Module>"     # a module from the .toml's [modules]

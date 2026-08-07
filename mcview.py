@@ -222,6 +222,7 @@ def main():
             print("\n  Every root says where it came from. Read it before believing a number:")
             print("    mcview --map          does the mass look like your system?")
             print("    mcview --orient <X>   ask it something whose answer you already know")
+
         print()
         return
 
@@ -618,6 +619,17 @@ def main():
                               ensure_ascii=False, indent=2, default=str))
             return
 
+        # R3 of this project: never degrade in silence. Without `[modules]` the grouping
+        # falls back to the 2-level directory, and the table looks exactly the same — same
+        # columns, same percentages, a name in every row. What changed is WHAT IS BEING
+        # MEASURED: physical proximity instead of responsibility. Measured here, and this is
+        # why it is not derived instead: MCL over the call graph groups 33%% of the symbols
+        # into clusters of at most 40, which are sub-modules — proposing them covered 16%% of
+        # the files, worse than the fallback that at least covers all of them.
+        if not cfg.modules:
+            print("\n  \u26a0 no [modules] in the .toml: grouping by DIRECTORY. Every row below")
+            print("    is a folder, so this measures proximity, not lines of work. Declaring")
+            print("    them by responsibility is what makes this table mean something.")
         print(f"\n  LINES OF WORK — {cfg.name}   (inflation {args.inflation})")
         print(f"  declared by you vs discovered by the walker\n")
         print(f"  {'declared line':26s} {'mass':>7s} {'sym':>5s} {'cold':>6s} {'sym/%mass':>11s}")
@@ -814,6 +826,17 @@ def main():
                                             for f in rows]},
                               ensure_ascii=False, indent=2))
             return
+        # R3 of this project: never degrade in silence. Without `[modules]` the grouping
+        # falls back to the 2-level directory, and the table looks exactly the same — same
+        # columns, same percentages, a name in every row. What changed is WHAT IS BEING
+        # MEASURED: physical proximity instead of responsibility. Measured here, and this is
+        # why it is not derived instead: MCL over the call graph groups 33%% of the symbols
+        # into clusters of at most 40, which are sub-modules — proposing them covered 16%% of
+        # the files, worse than the fallback that at least covers all of them.
+        if not cfg.modules:
+            print("\n  \u26a0 no [modules] in the .toml: grouping by DIRECTORY. Every row below")
+            print("    is a folder, so this measures proximity, not lines of work. Declaring")
+            print("    them by responsibility is what makes this table mean something.")
         print(f"\n  HEAT MAP — {cfg.name}")
         print(f"  expected usage mass, derived from structure (without executing anything)")
         print(f"\n  {conc['archivos_50pct']} files concentrate 50% of usage · "

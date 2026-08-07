@@ -16,13 +16,33 @@ cohesion 0.61
 ── TEMPERATURE ────────────────────────────────────────────
   ALIVE_PRODUCT            12
   ALIVE_PRODUCT_WEAK        2
-  ALIVE_NOT_PRODUCT                 1
+  ALIVE_NOT_PRODUCT         1
   DEAD_CANDIDATE            1
   cold (mass ~0)            2   referenced, but the system does not go through them
 ```
 
 One directory, one `.toml`, no dependencies on the main path. Python and TypeScript. Usable as a
 CLI or as an MCP server.
+
+### What it is for, and what it is not
+
+It exists to **orient whoever is about to work** — increasingly, an agent that does not hold the
+repository in its head. It says what is there so you build and audit with more discipline and
+less flailing, and faster than by opening twenty files to find the three that matter.
+
+That is the whole purpose. Everything it deliberately does *not* do follows from it:
+
+- **It is not a health check.** It has no opinion about quality. It reports mass, reachability,
+  duplication and cohesion; whether any of that is a *problem* depends on what the project is
+  for, and it does not know that.
+- **It does not decide, and it never authorises a change.** `DEAD_CANDIDATE` is a hypothesis,
+  not a deletion order. A duplicate is a shape, not debt.
+- **It does not replace reading the code.** It tells you *which* code to read — every view ends
+  pointing at a concrete path, precisely so you go and verify it.
+
+The decisions stay with the person. What this moves is the **cost of being disciplined**: what
+used to mean holding the repo in your head, or trusting documentation that drifted, becomes a
+measurement you can take in one command and cite.
 
 ---
 

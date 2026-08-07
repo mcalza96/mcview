@@ -21,6 +21,12 @@ description: >-
 goes, and which guards may be switched off without warning. It is agnostic: everything
 project-specific lives in a `.toml`.
 
+**It measures; it does not judge, and it does not authorise.** There is no health verdict
+here and no quality score: whether a number is a *problem* depends on what the project is
+for, which the tool does not know. `DEAD_CANDIDATE` is a hypothesis to verify, never a
+deletion order, and deleting is the user's decision — your job is to bring the evidence and
+its caveat, not a conclusion.
+
 ```bash
 mcview/mcview.py                     # liveness levels + duplicates (the base view)
 mcview/mcview.py --map               # usage mass per file

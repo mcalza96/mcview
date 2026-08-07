@@ -408,16 +408,46 @@ def render(root: str, findings: dict) -> str:
               "# internal duplication is noise: two near-identical tests are normal, not debt.",
               "exclude = [" + ", ".join(f'"{d}/"' for d in findings["test_dirs"]) + "]"]
 
+    # These two used to sit in the "nothing in the file system knows them" list below, and for
+    # one of them that was simply false: a service IS its entrypoint, and the entrypoints were
+    # already found, with their reason, a few lines up. The cost of not writing them was not
+    # cosmetic — `--services` prints "no [services] in the .toml — nothing to derive" and the
+    # whole view is dark on every freshly initialised project, with the data sitting right here.
+    if findings["entrypoints"]:
+        L += ["", "# One entry per process that starts. What each service REACHES is derived from",
+              "# the graph, not declared — that is why a file can belong to several at once,",
+              "# which is the truth about a shared `services/` directory.",
+              "[services]"]
+        for rel, why in findings["entrypoints"][:10]:
+            svc = os.path.splitext(os.path.basename(rel))[0]
+            L.append(f'{svc} = "{rel}"'.ljust(46) + f"# {why}")
+
+    if findings["decorators"]:
+        L += ["", "# A registration decorator is also a SEAM: whoever consumes this project by",
+              "# name comes in through the id it registers. Derived from the same finding that",
+              "# produced `[roots] decorators` — the rest of the section cannot be derived.",
+              "[seams]",
+              "exports_tool = [" + ", ".join(f'"{d[0]}"' for d in findings["decorators"][:8]) + "]"]
+
     L += [
         "",
         "# NOT written here, and not by omission — nothing in the file system knows them:",
         "#   [modules]   the lines of work. A module is NOT a directory: 'retrieval' can live",
         "#               in three at once. Declaring them by responsibility is what makes the",
         "#               map readable; declaring them by folder measures physical proximity.",
-        "#   [seams]     the literals through which this project joins others.",
+        "#               Not derivable, and this was MEASURED, not assumed: MCL over the call",
+        "#               graph covers 33% of the symbols in groups of at most 40, which are",
+        "#               SUB-modules. Proposing them gave 61 lines covering 16% of the files —",
+        "#               worse than the directory fallback, which at least covers all of it.",
+        "#               `mcview --modules` uses those groups for what they do measure: whether",
+        "#               a line you declared is really one thing (SPLIT) or two names for one",
+        "#               (MERGED).",
+        "#   [seams]     the rest of it: the tables, the routes and the literals through which",
+        "#               this project joins others.",
         "#   [surfaces]  the doors a user enters through.",
         "#   [[locks]]   the contracts over connections.",
         "# See the `mcview-install` skill.",
         "",
     ]
     return "\n".join(L)
+

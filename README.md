@@ -55,12 +55,26 @@ The consumer of this tool is an agent, and until now it reached the tool through
 prose telling it which command to run. A skill is a prompt: something that has to be read,
 remembered and not gotten wrong. A tool schema cannot be invoked wrong.
 
+```bash
+# global — one server for every repository
+pipx install git+https://github.com/mcalza96/mcview
+claude mcp add --scope user mcview -- mcview --mcp
+```
+
 ```jsonc
-// .mcp.json at your project root
+// or per project, pinned to the copy in that repo — .mcp.json at its root
 { "mcpServers": { "mcview": {
     "type": "stdio", "command": "python3",
     "args": ["${CLAUDE_PROJECT_DIR}/mcview/mcview.py", "--mcp"] } } }
 ```
+
+Pick one, not both: the same server registered twice is two versions that can drift, and the
+project scope silently wins. Global is a snapshot of whatever was installed —
+`pipx install --force git+…` to move it; per-project follows that repo's copy.
+
+**Pass `projectPath` when it is global.** One process serves many repositories, and without it
+the answer depends on the directory the client happened to launch it from — measured, the same
+call returns 6,186 symbols from the project root and "no mcview.toml" from `/tmp`.
 
 Ten tools, by intent rather than by flag: `mcview_orient` (the primary one), `mcview_process`,
 `mcview_route`, `mcview_exists`, `mcview_map`, `mcview_status`, `mcview_locks`, `mcview_seams`,

@@ -134,6 +134,14 @@ def report(weave, r: dict) -> str:
             if r["of_candidates"] > 1 else "") + "\n",
          "  the order is the WRITTEN one, not the executed one: a call inside an `if`",
          "  shows up anyway, and a dynamically dispatched one does not\n"]
+    # R3: never degrade in silence. When the entry was not declared, the walk starts at the
+    # heaviest symbol — and mass is *measured* not to predict execution (AUC 0.506), so the
+    # origin is an inference, not an entry point. Everything downstream, the expected visits
+    # included, is conditioned on it. Saying so costs two lines; not saying so makes a guess
+    # read like a fact.
+    if r["of_candidates"] > 1 and not getattr(weave.cfg, "surfaces", None):
+        f += ["  \u26a0 no [surfaces] declared: this origin was CHOSEN BY MASS, not by a door.",
+              "    Naming the real entry points in the .toml changes where this walk begins.\n"]
 
     def descend(n: dict, depth_lvl: int):
         indent = "   " + "  " * depth_lvl

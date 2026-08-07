@@ -26,9 +26,15 @@ directories gave 649 roots and the flow stopped saying anything; declaring what 
 —eight files— and it began to answer. A `--init` that quietly emitted `dirs = ["src/"]` would
 produce a config that runs, reports numbers, and measures nothing.
 
-WHAT IT DOES NOT DO. It does not name the lines of work (`[modules]`), it does not declare the
-seams, and it does not guess the surfaces. Those are statements about what the project *is*, not
-about how it starts, and nothing in the file system knows them.
+WHAT IT DOES NOT DO. It does not name the lines of work (`[modules]`), and it does not name the
+surfaces. Those are statements about what the project *is*, not about how it starts.
+
+It does PROPOSE the surface candidates, commented out, because the two halves of that question
+are not equally hard: which files declare routes is in the AST, and which of them is "the web
+app" against "the Telegram webhook" is a statement about the product. Emitting the first as a
+commented block turns naming them into a decision somebody makes rather than a section nobody
+knew existed. The header is commented too — an empty `[surfaces]` would be a DECLARATION that
+this project has no doors, and the tool would believe it.
 """
 from __future__ import annotations
 
@@ -158,6 +164,7 @@ def _detect_py(root: str, py: list[str], out: dict) -> None:
     objs: Counter = Counter()
     methods: Counter = Counter()
     proto: Counter = Counter()
+    puertas: Counter = Counter()
 
     for p in py:
         rel = os.path.relpath(p, root)
@@ -187,6 +194,11 @@ def _detect_py(root: str, py: list[str], out: dict) -> None:
                     if meth in HTTP_METHODS:
                         objs[obj] += 1
                         methods[meth] += 1
+                        # The FILE, not just the verb. A surface is a door, and a door is a
+                        # file — without this the candidates for `[surfaces]` could not be
+                        # proposed at all, which is why that section used to be listed as
+                        # "nothing in the file system knows them".
+                        puertas[rel] += 1
                     else:
                         # `@mcp_server.call_tool()` — the object is a registry but the method
                         # is not an HTTP verb: it is a PROTOCOL handler, which `config
@@ -212,6 +224,7 @@ def _detect_py(root: str, py: list[str], out: dict) -> None:
             # used in exactly one file each, and a threshold that hides them silently is the
             # same class of error as one that declares a validator. They go out as candidates.
             out["maybe_decorators"].append(row)
+    out["door_candidates"] = [(f, n) for f, n in puertas.most_common() if not _is_aux(f)]
     out["route_methods"] = [m for m, _ in methods.most_common()]
     out["route_objects"] = [o for o, _ in objs.most_common()]
     out["maybe_route_objects"] = [(o, n) for o, n in proto.most_common()
@@ -272,6 +285,10 @@ def _detect_ts(root: str, out: dict) -> None:
                 conv.append(os.path.relpath(os.path.join(dirpath, f), root))
     if conv:
         out["convention_roots"] = conv
+        # In a filesystem-routed framework the doors are literally the file names, so the
+        # surface candidates come for free — no counting of decorators needed.
+        out["door_candidates"] = [(f, 1) for f in conv
+                                  if os.path.basename(f) in ("page.tsx", "route.ts", "route.tsx")]
         out["notes"].append(
             f"{len(conv)} files loaded by framework convention (route/page/layout) — those "
             f"are the roots, and `ts.py` already declares them: nothing to write here")
@@ -429,6 +446,30 @@ def render(root: str, findings: dict) -> str:
               "[seams]",
               "exports_tool = [" + ", ".join(f'"{d[0]}"' for d in findings["decorators"][:8]) + "]"]
 
+    if findings.get("door_candidates"):
+        # COMMENTED, header included, and that is the point. An empty `[surfaces]` would be a
+        # DECLARATION that this project has no doors, and the tool would believe it. Commented
+        # out, the absence stays an absence — which is the truth until somebody names them.
+        #
+        # It matters more than it looks: without surfaces, `--sequence` picks its origin as the
+        # heaviest symbol of the module, so the Markov chain starts wherever mass points. And
+        # mass is measured NOT to predict execution (AUC 0.506). Naming the doors replaces an
+        # inferred origin with a real one.
+        L += ["",
+              "# THE DOORS A USER ENTERS THROUGH. Uncomment, GROUP and NAME them — the grouping",
+              "# is the part no measurement can give you: these files declare routes, but which",
+              "# ones are 'the web app' and which are 'the Telegram webhook' is a statement",
+              "# about the product. Until this exists, any flow starting from a module begins at",
+              "# its heaviest symbol, which is a guess dressed as an entry point.",
+              "# [surfaces]"]
+        for rel, n in findings["door_candidates"][:12]:
+            cuenta = f"{n} routes" if n > 1 else "loaded by convention"
+            linea = f'# "{os.path.splitext(os.path.basename(rel))[0]}" = ["{rel}"]'
+            L.append(f"{linea}{' ' * max(1, 62 - len(linea))}# {cuenta}")
+        if len(findings["door_candidates"]) > 12:
+            L.append(f"#   … and {len(findings['door_candidates']) - 12} more files declaring "
+                     f"routes, left out to keep this readable — not because they are not doors.")
+
     L += [
         "",
         "# NOT written here, and not by omission — nothing in the file system knows them:",
@@ -444,7 +485,6 @@ def render(root: str, findings: dict) -> str:
         "#               (MERGED).",
         "#   [seams]     the rest of it: the tables, the routes and the literals through which",
         "#               this project joins others.",
-        "#   [surfaces]  the doors a user enters through.",
         "#   [[locks]]   the contracts over connections.",
         "# See the `mcview-install` skill.",
         "",

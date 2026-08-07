@@ -233,7 +233,7 @@ def from_surface(project, surface: str):
     targets = cfg.surfaces.get(surface)
     if not targets:
         return set(), set(), (f"«{surface}» is not declared. Surfaces: "
-                              f"{', '.join(sorted(cfg.surfaces)) or '(ninguna)'}")
+                              f"{', '.join(sorted(cfg.surfaces)) or '(none declared)'}")
     entries: set[str] = set()
     for o in targets:
         ids, err = _cand._resolve(project, o)

@@ -162,33 +162,3 @@ def bypasses(paths: list[list[str]], guards: set[str], project) -> list[dict]:
                 "saltos": len(c) - 1,
             })
     return sorted(out, key=lambda x: x["saltos"])
-
-
-def analyze(project, declared_sinks: list[str], guard_threshold: float = 0.30) -> dict:
-    """The complete structural level 2, for a set of sinks.
-
-    IT RUNS OVER THE UNAMBIGUOUS EDGES, not over the complete graph. A path is a stronger
-    claim than a reference and needs stronger evidence: over CIRE there are 120,123 edges
-    against 7,502 unambiguous ones, and with the former everything reaches everything. Here
-    that hurts twice as much as in the rest of the tool, because a false bypass is not an
-    imprecise datum: it is an accusation of a security hole, and it sends somebody to audit
-    code that is in fact protected. See `flow._UnambiguousOnly`.
-    """
-    from flow import _UnambiguousOnly
-    from heatmap import _is_product
-
-    project = _UnambiguousOnly(project)
-    sinks = resolve_sinks(project, declared_sinks)
-    if not sinks:
-        return {"error": f"no sink resolved: {declared_sinks}"}
-    roots = {s for s in project.product_roots
-              if _is_product(project, project.symbols[s].file)}
-    paths = paths_to(project, sinks, roots)
-    discovered = discovered_guards(paths, project, guard_threshold)
-    ids_guard = {g["id"] for g in discovered}
-    return {
-        "sinks": sorted(project.symbols[s].loc for s in sinks),
-        "raices_que_llegan": len(paths),
-        "discovered_guards": discovered,
-        "bypasses": bypasses(paths, ids_guard, project),
-    }

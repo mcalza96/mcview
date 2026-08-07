@@ -220,17 +220,3 @@ def build(configs: dict[str, str]) -> Weave:
     return weave
 
 
-def shared_resources(configs: dict[str, str]) -> list[dict]:
-    """Tables and RPCs touched by two or more projects. They are not edges —nobody calls
-    anybody— but they are coupling, and whoever reads the map has to know they exist."""
-    loaded = {e: _config.load(r) for e, r in configs.items()}
-    cats = {e: _seams.detect(_factory.make_project(c)) for e, c in loaded.items()}
-    out = []
-    for kind in ("table", "rpc"):
-        by_literal: dict[str, set[str]] = defaultdict(set)
-        for label, cat in cats.items():
-            for literal in cat.get("touches", {}).get(kind, {}):
-                by_literal[literal].add(label)
-        out += [{"kind": kind, "literal": lit, "projects": sorted(q)}
-                for lit, q in sorted(by_literal.items()) if len(q) > 1]
-    return out

@@ -59,10 +59,9 @@ a path. The config discovers itself by walking up from the current directory.
 `--no-duplicates` skips the expensive part of the base view (the full base takes tens of
 seconds; without duplicates, seconds).
 
-**Level 2** (`mcview/views/guards.py`) is a LIBRARY with no CLI flag and, today, no caller
-inside the tool — you import it and pass it level-1 output. Treat the section below as the
-method it encodes; the four findings it describes were reached by asking those questions by
-hand, not by running a command.
+**Level 2 is a METHOD, not a command.** There used to be a module for it; it was removed
+because nothing imported it and nothing ran it. What follows are the questions to ask by hand —
+which is how the four findings below were reached in the first place, module or no module.
 
 ## Pick the depth before starting
 
@@ -490,14 +489,14 @@ history.
 
 ## Level 2: from signals to GUARDS
 
-> Not wired: `views/guards.py` has no flag and nothing imports it. What follows is the method —
+> Not a command: no flag, and no module behind it. What follows is the method —
 > the two questions that pay off and how to read their answers. Questions 1 and 4 are computed
 > from what level 1 already gives you; the module implements them if you import it.
 
 Everything above is a **graph** question: who references whom. It finds what is *left over*. It
 does not find what is *wrong*, and it does not tell a `require_admin` from a CRUD.
 
-`mcview/views/guards.py` is the complementary question —**what does this code promise**— and it
+Level 2 is the complementary question —**what does this code promise**— and it
 **consumes** level 1: the graph says WHERE to look, the predicate says WHAT to ask.
 
 **It is not "auditing security".** That space is infinite and cannot be walked. What can be

@@ -32,11 +32,6 @@ import factory as _factory
 import core as _core
 
 
-def _git(repo: str, *args: str) -> str:
-    return subprocess.run(["git", "-C", repo, *args],
-                          capture_output=True, text=True, check=True).stdout.strip()
-
-
 class Snapshot:
     """The project's state at one commit. The expensive part is computed once."""
 

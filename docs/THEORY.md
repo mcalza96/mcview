@@ -312,10 +312,15 @@ first two, a 102-node route collapses to two or three — impeccable and unreada
 
 ## What is not here
 
-`views/guards.py` implements a lexical classifier for guard-like names. It has no CLI flag and
-nothing imports it; the method it encodes is documented in the `mcview-repo` skill, and the
-findings attributed to it were reached by asking its questions by hand.
+Two things used to be here and were REMOVED, and the removal is worth recording: both were
+documented as present-but-unwired for long enough that the documentation started to read like a
+feature list.
 
-`graph/paths.py::analyze` — the structural security pass over declared sinks — has no callers
-either, and it still runs over the complete graph, so its guards and bypasses would carry the
-inflation described above. If it is ever wired in, it needs the restricted view.
+`views/guards.py` was a 151-line lexical classifier for guard-like names, with no CLI flag and
+no importer. `graph/paths.py::analyze` was the structural security pass over declared sinks —
+also with no callers, and worse: it ran over the COMPLETE graph, so anyone who wired it would
+have got the inflation the two decisions above exist to avoid. Not unfinished work; work we
+already knew would come out wrong.
+
+The METHOD both encoded survives in the `mcview-repo` skill, as prose, which is where a method
+belongs. What is gone is the code that implemented it and never ran.

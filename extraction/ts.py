@@ -26,28 +26,28 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-import core as _nucleo
+import core as _core
 from core import Project, Symbol
 
-EXTENSIONES = (".ts", ".tsx", ".mts", ".cts")
+EXTENSIONS = (".ts", ".tsx", ".mts", ".cts")
 
 # The App Router loads these files BY NAME: there is never an import pointing at them.
 # In Python the roots had to be hunted (decorators, routes) and one escaped that only turned
 # up with a runtime probe; here the framework declares them, so the walker starts exactly
 # where a request comes in.
-ARCHIVOS_RAIZ = frozenset({
+ROOT_FILES = frozenset({
     "page.tsx", "layout.tsx", "route.ts", "route.tsx", "template.tsx", "default.tsx",
     "loading.tsx", "error.tsx", "not-found.tsx", "global-error.tsx", "middleware.ts",
     "instrumentation.ts", "sitemap.ts", "robots.ts", "manifest.ts", "opengraph-image.tsx",
     "icon.tsx", "apple-icon.tsx", "not-found.ts",
 })
 # Names the framework invokes inside those files.
-NOMBRES_RAIZ = frozenset({
+ROOT_NAMES = frozenset({
     "default", "metadata", "generateMetadata", "generateStaticParams", "generateViewport",
     "viewport", "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS",
 })
 
-_DECLARAN = {
+_DECLARES = {
     "function_declaration": "function", "generator_function_declaration": "function",
     "class_declaration": "class", "abstract_class_declaration": "class",
     "interface_declaration": "type", "type_alias_declaration": "type",
@@ -56,7 +56,7 @@ _DECLARAN = {
 # `const useFoo = () => {}` / `const Panel = memo(...)`: the declaration is a variable, but
 # for the graph it is a symbol just like a function. Without this you lose most of the
 # components and hooks of a modern React project.
-_VARIABLE = "variable_declarator"
+_VARIABLE_DECL = "variable_declarator"
 
 
 @dataclass
@@ -78,8 +78,8 @@ class _Parser:
                 f"({e})"
             ) from e
         # tsx accepts TS without JSX too, so a single parser covers .ts and .tsx.
-        leng = ts.Language(tst.language_tsx())
-        return cls(leng, ts.Parser(leng))
+        lang = ts.Language(tst.language_tsx())
+        return cls(lang, ts.Parser(lang))
 
     def tree(self, src: bytes):
         return self.parser.parse(src)
@@ -142,7 +142,7 @@ class TSProject(Project):
         for dirpath, dirnames, filenames in os.walk(self.cfg.root):
             dirnames[:] = [d for d in dirnames if d not in self.cfg.ignored_dirs]
             for fn in filenames:
-                if not fn.endswith(EXTENSIONES) or fn.endswith(".d.ts"):
+                if not fn.endswith(EXTENSIONS) or fn.endswith(".d.ts"):
                     continue
                 abs_p = os.path.join(dirpath, fn)
                 rel = os.path.relpath(abs_p, self.cfg.root)
@@ -153,7 +153,7 @@ class TSProject(Project):
     # -- graph construction ------------------------------------------------
     def _build(self):
         self._parser = _Parser.create()
-        self._raices_ts: dict[str, object] = {}
+        self._ts_roots: dict[str, object] = {}
 
         # step 1 — inventario
         for abs_p, rel in self._files():
@@ -163,12 +163,12 @@ class TSProject(Project):
                 continue
             tree = self._parser.tree(src)
             self.sources[rel] = src.decode("utf-8", "replace")
-            self._raices_ts[rel] = tree.root_node
-            for n in _recorrer(tree.root_node):
+            self._ts_roots[rel] = tree.root_node
+            for n in _walk(tree.root_node):
                 name = kind = None
-                if n.type in _DECLARAN:
-                    name, kind = _declared_name(n), _DECLARAN[n.type]
-                elif n.type == _VARIABLE and _is_functional(n):
+                if n.type in _DECLARES:
+                    name, kind = _declared_name(n), _DECLARES[n.type]
+                elif n.type == _VARIABLE_DECL and _is_functional(n):
                     name, kind = _declared_name(n), "function"
                 if not name:
                     continue
@@ -182,11 +182,11 @@ class TSProject(Project):
             lst.sort(key=lambda s: s.end - s.line)   # the tightest one first
 
         # step 2 — lexical scope (same as the Python side: needed BEFORE referring)
-        for rel, root in self._raices_ts.items():
+        for rel, root in self._ts_roots.items():
             self._map_reach_ts(rel, root)
 
         # step 3 — roots and references
-        for rel, root in self._raices_ts.items():
+        for rel, root in self._ts_roots.items():
             self._analyze_ts(rel, root)
 
     def _map_reach_ts(self, rel: str, root):
@@ -199,8 +199,8 @@ class TSProject(Project):
         computed.
         """
         por_nodo: dict[tuple[int, str], object] = {}
-        for n in _recorrer(root):
-            if n.type in _DECLARAN or (n.type == _VARIABLE and _is_functional(n)):
+        for n in _walk(root):
+            if n.type in _DECLARES or (n.type == _VARIABLE_DECL and _is_functional(n)):
                 name = _declared_name(n)
                 if name:
                     por_nodo[(n.start_point[0] + 1, name)] = n
@@ -221,16 +221,16 @@ class TSProject(Project):
 
     def _analyze_ts(self, rel: str, root):
         base = os.path.basename(rel)
-        is_entry = base in ARCHIVOS_RAIZ
+        is_entry = base in ROOT_FILES
         is_root_dir = self.cfg.is_root_dir(rel)
         index = {s.name: s.id for s in self.by_file[rel]}
 
-        for n in _recorrer(root):
+        for n in _walk(root):
             # --- roots: what the framework invokes by convention -----------
             if is_entry and n.type in ("export_statement",):
                 for name in _exported(n):
                     sid = index.get(name)
-                    if sid and (name in NOMBRES_RAIZ or _is_default(n)):
+                    if sid and (name in ROOT_NAMES or _is_default(n)):
                         self.roots.add(sid)
                         self.product_roots.add(sid)
                         self.reasons["convencion_next"] += 1
@@ -243,7 +243,7 @@ class TSProject(Project):
 
             # --- referencias ------------------------------------------------
             if n.type == "identifier":
-                if n.parent is not None and n.parent.type in _DECLARAN:
+                if n.parent is not None and n.parent.type in _DECLARES:
                     continue                          # its own declaration
                 self._refer(rel, n.start_point[0] + 1, _text(n))
             elif n.type in ("type_identifier", "nested_type_identifier"):
@@ -251,7 +251,7 @@ class TSProject(Project):
                 # parser labels them differently from a plain identifier. Without this branch,
                 # EVERY type used only as an annotation shows up dead: it was 60% of the
                 # candidates in the first run, types used two lines below included.
-                if n.parent is None or n.parent.type not in _DECLARAN:
+                if n.parent is None or n.parent.type not in _DECLARES:
                     self._refer(rel, n.start_point[0] + 1, _text(n))
             elif n.type == "property_identifier":
                 # `x.foo()` — bound to the type at runtime, worth less than a lexical name.
@@ -259,7 +259,7 @@ class TSProject(Project):
                 # scope filter would erase `obj.foo` because the function declares a
                 # `const foo`.
                 self._refer(rel, n.start_point[0] + 1, _text(n),
-                              fuerza=_nucleo.ATTRIBUTE_WEIGHT, lexico=False)
+                              fuerza=_core.ATTRIBUTE_WEIGHT, lexico=False)
             elif n.type == "shorthand_property_identifier":
                 # `export const Filters = { Bar, Input, Select }` — object shorthand is a
                 # REFERENCE, but the parser gives it a node type of its own. Without this
@@ -282,10 +282,10 @@ class TSProject(Project):
             # level. Measured on a Next.js project with zero tests: 20 symbols —including
             # `withAuth` and `Database`— reported as reachable-only-off-product. The knob
             # was written by `--init`, documented, and read by nobody.
-            es_producto = is_entry or self.cfg.is_product_dir(rel)
+            is_product = is_entry or self.cfg.is_product_dir(rel)
             for s in self.by_file[rel]:
                 self.roots.add(s.id)
-                if es_producto:
+                if is_product:
                     self.product_roots.add(s.id)
 
     # -- fingerprint estructural ------------------------------------------------
@@ -297,14 +297,14 @@ class TSProject(Project):
         sequence, and identifiers —which are what has to be ignored— contribute no
         distinguishable type of their own. It is coarser than the Python equivalent, so it
         **detects less, never more**: a pair showing up here really is similar."""
-        root = self._raices_ts.get(s.file)
+        root = self._ts_roots.get(s.file)
         if root is None:
             return None
-        for n in _recorrer(root):
+        for n in _walk(root):
             if n.start_point[0] + 1 != s.line or _declared_name(n) != s.name:
                 continue
             body = n.child_by_field_name("body")
-            if body is None and n.type == _VARIABLE:
+            if body is None and n.type == _VARIABLE_DECL:
                 v = n.child_by_field_name("value")
                 body = v.child_by_field_name("body") if v is not None else None
             if body is None:
@@ -316,13 +316,13 @@ class TSProject(Project):
         return None
 
 
-def _shape(n, prof: int = 0) -> str:
+def _shape(n, depth: int = 0) -> str:
     """Nested node types down to a fixed depth. Without a cap, two long and different
     functions share a prefix and the hash stops discriminating."""
-    if prof >= 3 or not n.is_named:
+    if depth >= 3 or not n.is_named:
         return n.type
     children = [h for h in n.children if h.is_named]
-    return n.type + ("(" + ",".join(_shape(h, prof + 1) for h in children) + ")" if children else "")
+    return n.type + ("(" + ",".join(_shape(h, depth + 1) for h in children) + ")" if children else "")
 
 
 # Nodes that open a scope of THEIR OWN: on reaching one, its bindings no longer belong to
@@ -349,7 +349,7 @@ _ID_PATRON = frozenset({"identifier", "shorthand_property_identifier_pattern"})
 def _names_of_pattern(n) -> set[str]:
     """`const {a, b: {c}} = x` / `([p, ...q]) => …` → {a, c, p, q}."""
     out = set()
-    for x in _recorrer(n):
+    for x in _walk(n):
         if x.type in _ID_PATRON:
             out.add(_text(x))
     return out
@@ -379,7 +379,7 @@ def _ts_bound(root) -> set[str]:
         n = stack.pop()
         if n.type in _OTRO_ALCANCE:
             continue
-        if n.type == _VARIABLE and _is_functional(n):
+        if n.type == _VARIABLE_DECL and _is_functional(n):
             # `const Panel = () => {}` is the normal way to declare a component or a
             # handler: it IS a project symbol, just like a nested `def` in Python.
             # Counting it as a shadow erases the real references and kills it by cascade —
@@ -404,14 +404,14 @@ def _reach_of(node):
     the `variable_declarator`: without this hop, the component's parameters and constants
     would not be seen.
     """
-    if node.type == _VARIABLE:
+    if node.type == _VARIABLE_DECL:
         v = node.child_by_field_name("value")
         if v is not None and v.type in _OTRO_ALCANCE:
             return v
     return node
 
 
-def _recorrer(n):
+def _walk(n):
     stack = [n]
     while stack:
         x = stack.pop()
@@ -425,8 +425,8 @@ def _is_default(n) -> bool:
 
 def _exported(n) -> list[str]:
     out = []
-    for h in _recorrer(n):
-        if h.type in _DECLARAN or (h.type == _VARIABLE):
+    for h in _walk(n):
+        if h.type in _DECLARES or (h.type == _VARIABLE_DECL):
             nm = _declared_name(h)
             if nm:
                 out.append(nm)

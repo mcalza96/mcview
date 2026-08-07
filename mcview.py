@@ -436,7 +436,7 @@ def main():
     if args.services:
         import services as _serv
         m = _serv.reach(project)
-        bound = _serv.reach(project, fuerte=False)      # conservative lower bound
+        bound = _serv.reach(project, strong=False)      # conservative lower bound
         if args.json:
             print(_json.dumps({k: sorted(v) for k, v in m.items()},
                               ensure_ascii=False, indent=2))

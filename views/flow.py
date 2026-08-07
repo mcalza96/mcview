@@ -231,9 +231,9 @@ def trace(project, inside: set[str], rank: dict[str, float], top: int = 6) -> di
     }
 
 
-def _nickname(texto: str, longest: int = 26) -> str:
+def _nickname(text: str, longest: int = 26) -> str:
     """A Mermaid-safe label: no quotes, no brackets, and truncated."""
-    t = texto.replace('"', "'").replace("[", "(").replace("]", ")")
+    t = text.replace('"', "'").replace("[", "(").replace("]", ")")
     return t if len(t) <= longest else t[:longest - 1] + "…"
 
 

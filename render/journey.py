@@ -44,15 +44,15 @@ def _flatten(tree: dict, lane_of) -> list[dict]:
     indentation) but stops being the axis: the axis is time."""
     out: list[dict] = []
 
-    def descend(n: dict, prof: int):
+    def descend(n: dict, depth: int):
         for p in n["steps"]:
             out.append({
                 "name": p["name"], "loc": p["loc"], "lane": lane_of(p["id"]),
-                "prof": prof, "veces": p.get("veces", 1),
+                "depth": depth, "veces": p.get("veces", 1),
                 "ejecutado": p.get("ejecutado"),
                 "echo_note": p.get("already_told"), "hidden": p.get("hidden", 0),
             })
-            descend(p, prof + 1)
+            descend(p, depth + 1)
 
     descend(tree, 0)
     return out

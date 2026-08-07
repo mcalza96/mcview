@@ -281,13 +281,13 @@ def print_rows(r: dict):
         for c in r["calientes"]:
             print(f"    {c['mass_pct']:6.2f}%  {c['symbol']:32s} {c['loc']}")
 
-    for etq, clave in (("WHO USES IT", "incoming"), ("WHAT IT DEPENDS ON", "outgoing")):
-        rows = r[clave]
+    for etq, key in (("WHO USES IT", "incoming"), ("WHAT IT DEPENDS ON", "outgoing")):
+        rows = r[key]
         if not rows:
             continue
-        ambiguous = r[clave + "_ambiguous"]
+        ambiguous = r[key + "_ambiguous"]
         print(f"\n  ── {etq} ── ordered by the mass of the other side "
-              f"({len(rows)} of {r[clave + '_total']}) ──")
+              f"({len(rows)} of {r[key + '_total']}) ──")
         for f in rows:
             print(f"    {f['mass_pct']:6.2f}%  {f['file']:52s} {f['refs']:6.1f} refs")
         if ambiguous:

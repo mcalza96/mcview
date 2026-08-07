@@ -506,7 +506,7 @@ def _path_by_convention(rel: str, files: tuple, base: str) -> str | None:
     """In the App Router the route IS the file path: `app/api/x/[id]/route.ts` → `/api/x/[id]`.
 
     There is no literal to detect — the framework convention declares it, just like
-    `ARCHIVOS_RAIZ` in `ts.py`. Without this, the frontend BFF exports nothing detectable.
+    `ROOT_FILES` in `ts.py`. Without this, the frontend BFF exports nothing detectable.
     """
     name = rel.rsplit("/", 1)[-1]
     if name not in files:
@@ -520,7 +520,7 @@ def _path_by_convention(rel: str, files: tuple, base: str) -> str | None:
 def detect_ts(project) -> dict:
     """Same contract as `detect`, over the tree-sitter tree."""
     import re as _re
-    from ts import _recorrer
+    from ts import _walk
 
     c = getattr(project.cfg, "seams", {}) or {}
     if not c:
@@ -540,12 +540,12 @@ def detect_ts(project) -> dict:
     consume = defaultdict(lambda: defaultdict(list))
     en_producto = set()
 
-    for rel, root in getattr(project, "_raices_ts", {}).items():
+    for rel, root in getattr(project, "_ts_roots", {}).items():
         if file_path:
             path = _path_by_convention(rel, file_path, base_path)
             if path:
                 exporta["path"][path].append(f"{rel}:1")
-        for n in _recorrer(root):
+        for n in _walk(root):
             if n.type == "call_expression":
                 fn = n.child_by_field_name("function")
                 if fn is not None and fn.type == "member_expression":

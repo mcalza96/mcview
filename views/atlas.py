@@ -47,15 +47,15 @@ def depths(project, roots: set[str]) -> dict[str, int]:
     which is what orders a flow diagram. The maximum would measure the most contorted branch
     and would move a node by its worst case.
     """
-    prof = {r: 0 for r in roots}
+    depth = {r: 0 for r in roots}
     queue = deque(roots)
     while queue:
         n = queue.popleft()
         for nxt in project.strong_edges.get(n, ()):
-            if nxt not in prof:
-                prof[nxt] = prof[n] + 1
+            if nxt not in depth:
+                depth[nxt] = depth[n] + 1
                 queue.append(nxt)
-    return prof
+    return depth
 
 
 def layers(ids: list[str], edges: list[dict], min_weight: int = PESO_MINIMO) -> dict[str, int]:
@@ -161,19 +161,19 @@ def sort_rows(levels_of: dict[str, int], edges: list[dict],
     return {i: int(pos[i]) for i in pos}
 
 
-def _group(project, rank, prof, clave) -> dict[str, dict]:
-    """Aggregates symbols into map nodes according to `clave(sid) -> str`."""
+def _group(project, rank, depth, key) -> dict[str, dict]:
+    """Aggregates symbols into map nodes according to `key(sid) -> str`."""
     out: dict[str, dict] = {}
     for sid, s in project.symbols.items():
-        k = clave(sid, s)
+        k = key(sid, s)
         if k is None:
             continue
         n = out.setdefault(k, {"id": k, "mass": 0.0, "symbols": 0,
                                  "depths": [], "statuses": defaultdict(int)})
         n["mass"] += rank.get(sid, 0.0)
         n["symbols"] += 1
-        if sid in prof:
-            n["depths"].append(prof[sid])
+        if sid in depth:
+            n["depths"].append(depth[sid])
     return out
 
 
@@ -190,7 +190,7 @@ def _close(node: dict) -> dict:
     return node
 
 
-def _edges(project, clave, nodes: dict) -> list[dict]:
+def _edges(project, key, nodes: dict) -> list[dict]:
     """Unambiguous references aggregated at the map's level. Self-loops are dropped: a module
     calling itself is normal, and drawing it buries the real connections."""
     weight: dict[tuple[str, str], int] = defaultdict(int)
@@ -198,12 +198,12 @@ def _edges(project, clave, nodes: dict) -> list[dict]:
         so = project.symbols.get(o)
         if so is None:
             continue
-        ko = clave(o, so)
+        ko = key(o, so)
         for d in ds:
             sd = project.symbols.get(d)
             if sd is None:
                 continue
-            kd = clave(d, sd)
+            kd = key(d, sd)
             if ko is None or kd is None or ko == kd or ko not in nodes or kd not in nodes:
                 continue
             weight[(ko, kd)] += 1
@@ -241,8 +241,8 @@ def from_surface(project, surface: str):
             return set(), set(), err
         entries |= ids
 
-    alcanzable = set(depths(project, entries))
-    by_call = set(alcanzable)
+    reachable = set(depths(project, entries))
+    by_call = set(reachable)
     puerta_ids: set[str] = set()
     puerta = cfg.dispatch.get("at")
     abre = cfg.dispatch.get("opens", "")
@@ -250,17 +250,17 @@ def from_surface(project, surface: str):
         ids, err = _cand._resolve(project, puerta)
         # The door only opens if the user REACHES it. Opening it always would make every
         # surface reach everything, which is the inflation this map avoids.
-        if not err and (ids & alcanzable):
-            puerta_ids = ids & alcanzable
+        if not err and (ids & reachable):
+            puerta_ids = ids & reachable
             reason = abre.split(":", 1)[1]
             tools = project.roots_by_reason.get(reason, set())
-            alcanzable |= set(depths(project, tools)) | tools
+            reachable |= set(depths(project, tools)) | tools
     # What is on the map ONLY because the agent chooses by name. Distinguishing it is the
     # difference between "the user can get here" and "the user gets here by calling":
     # without the mark, the tools are drawn as if the path were made of calls and the map
     # asserts something the graph never proved.
-    seam = {"puerta": puerta_ids, "via": alcanzable - by_call}
-    return entries, alcanzable, None, seam
+    seam = {"puerta": puerta_ids, "via": reachable - by_call}
+    return entries, reachable, None, seam
 
 
 def build(project, rank: dict[str, float], statuses: dict[str, str],
@@ -272,14 +272,14 @@ def build(project, rank: dict[str, float], statuses: dict[str, str],
     touching the measurement again, and what allows `--json` to hand over exactly what is on
     screen.
     """
-    prof = depths(project, roots)
+    depth = depths(project, roots)
     cfg = project.cfg
     # With a surface, the map is NOT the repo: it is what that door reaches. Filtering here
     # —and not at draw time— makes layers, columns and mass be computed over the slice, which
     # is what you want to see; against the whole universe the slice ends up flattened by the
     # large modules that do not participate.
     if only is not None:
-        prof = {k: v for k, v in prof.items() if k in only}
+        depth = {k: v for k, v in depth.items() if k in only}
 
     inside = (lambda sid: True) if only is None else (lambda sid: sid in only)
     claves = {
@@ -294,8 +294,8 @@ def build(project, rank: dict[str, float], statuses: dict[str, str],
     }
 
     levels = {}
-    for level, clave in claves.items():
-        nodes = {k: _close(v) for k, v in _group(project, rank, prof, clave).items()}
+    for level, key in claves.items():
+        nodes = {k: _close(v) for k, v in _group(project, rank, depth, key).items()}
         for k, n in nodes.items():
             n["parent"] = parents[level](k)
             n["level"] = level
@@ -310,7 +310,7 @@ def build(project, rank: dict[str, float], statuses: dict[str, str],
             else:
                 n["name"] = k
         levels[level] = {"nodes": list(nodes.values()),
-                          "edges": _edges(project, clave, nodes)}
+                          "edges": _edges(project, key, nodes)}
 
     # Status is aggregated upward from the symbols: a module has no liveness level of its
     # own, it has a composition.
@@ -328,17 +328,17 @@ def build(project, rank: dict[str, float], statuses: dict[str, str],
     # its own rather than as loose edges because what has to be seen is the DOOR — "here the
     # agent chooses by name"— and not a tangle of lines toward 168 tools.
     if seam and seam.get("via"):
-        for level, clave in claves.items():
+        for level, key in claves.items():
             nodes = {n["id"]: n for n in levels[level]["nodes"]}
             grupo = {}
             for cual in ("puerta", "via"):
                 grupo[cual] = {k for sid in seam[cual]
                                if (s := project.symbols.get(sid)) is not None
-                               and (k := clave(sid, s)) is not None and k in nodes}
+                               and (k := key(sid, s)) is not None and k in nodes}
             # A group with symbols on both sides is NOT "via dispatch": it is reached by
             # call as well as through the agent, and marking it whole would hide that.
             solo_via = {k for k in grupo["via"] - grupo["puerta"]
-                        if not any(clave(sid, s) == k for sid, s in project.symbols.items()
+                        if not any(key(sid, s) == k for sid, s in project.symbols.items()
                                    if sid in (only or set()) and sid not in seam["via"])}
             for k in solo_via:
                 nodes[k]["via_despacho"] = True
@@ -394,7 +394,7 @@ def build(project, rank: dict[str, float], statuses: dict[str, str],
     return {
         "project": cfg.name,
         "levels": levels,
-        "max_depth": max(prof.values(), default=0),
-        "sueltos": sum(1 for s in project.symbols if s not in prof),
+        "max_depth": max(depth.values(), default=0),
+        "sueltos": sum(1 for s in project.symbols if s not in depth),
         "symbols": len(only) if only is not None else len(project.symbols),
     }

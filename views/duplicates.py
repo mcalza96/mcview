@@ -16,7 +16,7 @@ from __future__ import annotations
 import hashlib
 from collections import defaultdict
 
-import core as _nucleo
+import core as _core
 
 N_GRAMA = 5
 
@@ -43,7 +43,7 @@ def analyze(project, with_blocks: bool = True) -> dict:
         # the same contract as a symbol (`core.Fragment`), so neither the ranking nor
         # the consumers need to know which is which.
         for line, label, esq_b in project.blocks(s, cfg.min_statements_block):
-            frag = _nucleo.Fragment(f"{s.name}/{label}", s.file, line)
+            frag = _core.Fragment(f"{s.name}/{label}", s.file, line)
             fingerprints.append((frag, esq_b,
                             hashlib.blake2b(esq_b.encode(), digest_size=16).hexdigest()))
             blocks += 1

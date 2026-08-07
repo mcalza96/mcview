@@ -73,13 +73,13 @@ def save(row):
     return {"ok": True, "n": len(row)}
 
 
-def delete(clave):
+def delete(key):
     record("delete")
-    if not clave:
+    if not key:
         raise ValueError("VACIO")
-    if len(clave) > 100:
+    if len(key) > 100:
         raise ValueError("MUY_LARGO")
-    return {"ok": True, "n": len(clave)}
+    return {"ok": True, "n": len(key)}
 ''',
     "app/seguridad.py": '''
 def validate(payload):

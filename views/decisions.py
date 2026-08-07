@@ -51,8 +51,8 @@ def build(weave, src: str, dst: str, statuses: dict[str, str],
         bifurca = _markov.annotate_with_runtime(bifurca, obs)
     ids_bifurca = {b["id"] for b in bifurca}
 
-    prof = _atlas.depths(weave, r["origin"])
-    depth = max((prof.get(s, 0) for s in inside), default=0)
+    depth = _atlas.depths(weave, r["origin"])
+    depth = max((depth.get(s, 0) for s in inside), default=0)
 
     nodes = []
     total = sum(visitas.values()) or 1.0
@@ -68,8 +68,8 @@ def build(weave, src: str, dst: str, statuses: dict[str, str],
             "lane": lane,
             # The axis: inverted because the canvas draws layer 0 at the bottom and a decision
             # tree is read from the entry toward the leaves.
-            "layer": max(0, depth - prof.get(sid, depth)),
-            "symbols": 1, "statuses": {}, "sueltos": 0, "depth": prof.get(sid, -1),
+            "layer": max(0, depth - depth.get(sid, depth)),
+            "symbols": 1, "statuses": {}, "sueltos": 0, "depth": depth.get(sid, -1),
         }
         if sid in r["origin"]:
             n["entry"] = True

@@ -171,12 +171,12 @@ def _own_bound(node) -> set[str]:
     it TO THE REAL SYMBOL — suppressing its uses would erase the true reference, which is the
     exact opposite of what this filter is after.
     """
-    ligados: set[str] = set()
+    bound: set[str] = set()
     declarados_afuera: set[str] = set()
     a = node.args
     for x in (*a.posonlyargs, *a.args, *a.kwonlyargs, a.vararg, a.kwarg):
         if x:
-            ligados.add(x.arg)
+            bound.add(x.arg)
 
     stack = list(node.body)
     while stack:
@@ -191,10 +191,10 @@ def _own_bound(node) -> set[str]:
             # only when the name is read nowhere else in the function.
             for a in n.args.args + n.args.posonlyargs + n.args.kwonlyargs:
                 if not _read_outside(node, a.arg, n):
-                    ligados.add(a.arg)
+                    bound.add(a.arg)
             for extra in (n.args.vararg, n.args.kwarg):
                 if extra and not _read_outside(node, extra.arg, n):
-                    ligados.add(extra.arg)
+                    bound.add(extra.arg)
             stack.append(n.body)
             stack.extend(n.args.defaults)
             continue
@@ -222,7 +222,7 @@ def _own_bound(node) -> set[str]:
             for g in n.generators:
                 for t in ast.walk(g.target):
                     if isinstance(t, ast.Name) and not _read_outside(node, t.id, n):
-                        ligados.add(t.id)
+                        bound.add(t.id)
             stack.extend(g.iter for g in n.generators)
             stack.extend(c for g in n.generators for c in g.ifs)
             stack.extend(x for x in (getattr(n, "elt", None), getattr(n, "key", None),
@@ -231,11 +231,11 @@ def _own_bound(node) -> set[str]:
         if isinstance(n, (ast.Global, ast.Nonlocal)):
             declarados_afuera.update(n.names)
         elif isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
-            ligados.add(n.id)
+            bound.add(n.id)
         elif isinstance(n, ast.ExceptHandler) and n.name:
-            ligados.add(n.name)
+            bound.add(n.name)
         stack.extend(ast.iter_child_nodes(n))
-    return ligados - declarados_afuera
+    return bound - declarados_afuera
 
 
 def _decorator_name(d) -> str:
@@ -493,46 +493,46 @@ class Project:
                     queue.append(t)
         return {s for s in seen if s in self.symbols}
 
-    def _by_containment(self, vivos: set[str]) -> set[str]:
+    def _by_containment(self, alive: set[str]) -> set[str]:
         """Nested inside something alive → alive. Closures and callbacks are passed by
         reference, never called by name."""
-        vivos = set(vivos)
-        cambio = True
-        while cambio:
-            cambio = False
+        alive = set(alive)
+        changed = True
+        while changed:
+            changed = False
             for rel, lst in self.by_file.items():
-                tramos = [(s.line, s.end) for s in lst if s.id in vivos]
+                spans = [(s.line, s.end) for s in lst if s.id in alive]
                 for s in lst:
-                    if s.id in vivos:
+                    if s.id in alive:
                         continue
-                    if any(a < s.line and s.end <= b for a, b in tramos):
-                        vivos.add(s.id)
-                        cambio = True
-        return vivos
+                    if any(a < s.line and s.end <= b for a, b in spans):
+                        alive.add(s.id)
+                        changed = True
+        return alive
 
     def levels(self) -> dict[str, set[str]]:
         todas = set(self.module_refs)
         seed = set(self.roots) | {t for r in todas for t in self.module_refs[r]}
 
-        semilla_prod = set(self.product_roots)
+        seed_product = set(self.product_roots)
         for rel in {self.symbols[r].file for r in self.product_roots}:
-            semilla_prod |= self.module_refs.get(rel, set())
+            seed_product |= self.module_refs.get(rel, set())
 
-        semilla_fuerte = set(self.roots) | {
+        seed_strong = set(self.roots) | {
             t for r in self.strong_module_refs for t in self.strong_module_refs[r]}
 
-        alcanzable = self._by_containment(self._close(seed, self.edges))
+        reachable = self._by_containment(self._close(seed, self.edges))
         no_containment = self._close(seed, self.edges)
-        producto = self._close(semilla_prod, self.edges)
-        fuerte = self._close(semilla_fuerte, self.strong_edges)
+        product = self._close(seed_product, self.edges)
+        strong = self._close(seed_strong, self.strong_edges)
 
-        muerto = set(self.symbols) - alcanzable
+        dead = set(self.symbols) - reachable
         return {
-            "ALIVE_PRODUCT": producto & fuerte,
-            "ALIVE_PRODUCT_WEAK": producto - fuerte,
-            "ALIVE_NOT_PRODUCT": alcanzable - producto,
-            "ALIVE_BY_NESTING": alcanzable - no_containment,
-            "DEAD_CANDIDATE": muerto,
+            "ALIVE_PRODUCT": product & strong,
+            "ALIVE_PRODUCT_WEAK": product - strong,
+            "ALIVE_NOT_PRODUCT": reachable - product,
+            "ALIVE_BY_NESTING": reachable - no_containment,
+            "DEAD_CANDIDATE": dead,
         }
 
     # -- structural fingerprint (for duplicates) --------------------------------

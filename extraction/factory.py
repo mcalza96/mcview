@@ -10,7 +10,7 @@ import is lazy: the Python side never executes it.
 """
 from __future__ import annotations
 
-import core as _nucleo
+import core as _core
 
 
 def make_project(cfg):
@@ -18,4 +18,4 @@ def make_project(cfg):
         from ts import TSProject
 
         return TSProject(cfg)
-    return _nucleo.Project(cfg)
+    return _core.Project(cfg)

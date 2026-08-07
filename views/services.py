@@ -51,7 +51,7 @@ number says what runs FOR SURE in each process, not everything that runs.
 from __future__ import annotations
 
 
-def reach(project, fuerte: bool = True) -> dict[str, set[str]]:
+def reach(project, strong: bool = True) -> dict[str, set[str]]:
     """service → files that process can execute.
 
     Forward closure from the entrypoint's symbols, over the complete graph.
@@ -66,7 +66,7 @@ def reach(project, fuerte: bool = True) -> dict[str, set[str]]:
         seed = {s for s, x in project.symbols.items() if x.file == entry}
         # the entrypoint's module-level code also starts the process
         seed |= set(project.module_refs.get(entry, ()))
-        grafo = project.strong_edges if fuerte else project.edges
+        grafo = project.strong_edges if strong else project.edges
 
         def _close(sem):
             seen, queue = set(sem), list(sem)

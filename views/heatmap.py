@@ -193,11 +193,11 @@ def deletion_risk(project, dead, rank) -> list[dict]:
     """
     from collections import defaultdict
     total = sum(rank.values()) or 1.0
-    live_mass, vivos, todos = defaultdict(float), defaultdict(int), defaultdict(int)
+    live_mass, alive, todos = defaultdict(float), defaultdict(int), defaultdict(int)
     for sid, s in project.symbols.items():
         todos[s.file] += 1
         if sid not in dead:
-            vivos[s.file] += 1
+            alive[s.file] += 1
             live_mass[s.file] += rank.get(sid, 0.0)
 
     rows = []
@@ -207,12 +207,12 @@ def deletion_risk(project, dead, rank) -> list[dict]:
             "name": s.name, "kind": s.kind, "loc": s.loc, "file": s.file,
             "surroundings": live_mass[s.file] / total,
             "outgoing": sum(rank.get(t, 0.0) for t in project.edges.get(sid, ())) / total,
-            "dead_frac": (todos[s.file] - vivos[s.file]) / max(todos[s.file], 1),
+            "dead_frac": (todos[s.file] - alive[s.file]) / max(todos[s.file], 1),
         })
-    for clave in ("surroundings", "outgoing"):
-        mx = max((f[clave] for f in rows), default=0.0) or 1.0
+    for key in ("surroundings", "outgoing"):
+        mx = max((f[key] for f in rows), default=0.0) or 1.0
         for f in rows:
-            f[clave + "_n"] = f[clave] / mx
+            f[key + "_n"] = f[key] / mx
     for f in rows:
         f["risk"] = round(0.5 * f["surroundings_n"] * (1 - f["dead_frac"])
                             + 0.5 * f["outgoing_n"], 4)

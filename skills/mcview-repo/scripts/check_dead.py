@@ -97,12 +97,12 @@ def main():
                 continue
             path = os.path.join(dirpath, fn)
             try:
-                texto = open(path, encoding="utf-8", errors="ignore").read()
+                text = open(path, encoding="utf-8", errors="ignore").read()
             except OSError:
                 continue
-            if not patron.search(texto):
+            if not patron.search(text):
                 continue
-            for i, line in enumerate(texto.split("\n"), 1):
+            for i, line in enumerate(text.split("\n"), 1):
                 if "importlib" in line or "__import__" in line or "getattr(" in line:
                     if patron.search(line):
                         dinamicos.append(f"{path}:{i}")

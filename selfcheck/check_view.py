@@ -110,9 +110,9 @@ def main() -> int:
     if "error" in r:
         print(f"  ✗ {OBJETIVO} stopped resolving: {r['error']}")
         return 1
-    for clave in ("files", "calientes", "incoming", "outgoing"):
-        if not r.get(clave):
-            failures.append(f"the brief carries `{clave}` empty")
+    for key in ("files", "calientes", "incoming", "outgoing"):
+        if not r.get(key):
+            failures.append(f"the brief carries `{key}` empty")
     if sum(r["temperatura"].values()) == 0:
         failures.append("temperature classified no symbol")
     if r["mass_pct"] <= 0:
@@ -129,9 +129,9 @@ def main() -> int:
         # precondition. Measured on hermes — 597 paths, 1,669 called nodes, and the most
         # common reaches 12.9%, none the 0.30 threshold. Requiring it turned a property of the
         # codebase into a failure of the tool.
-        for clave in ("gates", "targets", "paths", "camino_ejemplo"):
-            if not f.get(clave):
-                failures.append(f"the flow carries `{clave}` empty")
+        for key in ("gates", "targets", "paths", "camino_ejemplo"):
+            if not f.get(key):
+                failures.append(f"the flow carries `{key}` empty")
         if f.get("paths") and max(len(c) for c in f["paths"]) < 2:
             failures.append("no path has more than one hop: there is no chain to show")
         # the header and the list have to count the SAME set

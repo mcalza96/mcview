@@ -29,7 +29,7 @@ import config as _config
 import duplicates as _dup_mod
 import heatmap as _heatmap
 import factory as _factory
-import core as _nucleo
+import core as _core
 
 
 def _git(repo: str, *args: str) -> str:

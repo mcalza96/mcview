@@ -21,7 +21,7 @@ import contracts  # noqa: E402
 
 class _Graph:
     """The minimum `verify` consumes. Both graphs are identical except where a case
-    quiera distinguir evidencia fuerte de ambigua."""
+    quiera distinguir evidencia strong de ambigua."""
 
     def __init__(self, fuertes, todas=None):
         self.strong_edges = {k: set(v) for k, v in fuertes.items()}

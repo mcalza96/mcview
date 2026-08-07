@@ -101,7 +101,15 @@ def start(flush_interval: float = 30.0) -> bool:
         os.makedirs(directory, exist_ok=True)
     except OSError:
         return False
-    _path = os.path.join(directory, f"liveness-{os.getpid()}-{int(_t0)}.jsonl")
+    # The HOSTNAME goes in the name, and it is not cosmetic. Under Docker the pid is 1 in
+    # EVERY container, so `liveness-{pid}-{t0}` discriminates only by the start second:
+    # measured on a real deployment, bringing up three services against the same mounted
+    # directory produced 2 files for 3 processes — two started within the same second and
+    # ended up interleaved in one. No symbol is lost (the JSONL is append-only and every file
+    # is read), but WHICH PROCESS each line came from is, and that is exactly what separates
+    # "the enrichment never ran" from "it ran in a process nobody was watching".
+    _host = os.uname().nodename if hasattr(os, "uname") else "host"
+    _path = os.path.join(directory, f"liveness-{_host}-{os.getpid()}-{int(_t0)}.jsonl")
 
     root = os.getenv("MCVIEW_PROBE_ROOT", "/app")
 

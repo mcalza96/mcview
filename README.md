@@ -239,6 +239,34 @@ get in" has no answer.
    means in this codebase before reading the mass.
 4. **Ask it something whose answer you already know.**
 
+### The doors, and why they are worth declaring
+
+`[roots]` says what STARTS. `[surfaces]` says where a **user comes in** — the Telegram handler,
+the HTTP route, the CLI's `main`. They are not the same statement and the second is the one no
+measurement can make: which files are "the web app" against "the Telegram webhook" is a fact
+about the product.
+
+It is worth the two minutes, and the number says why. A file listed in `dirs` makes **every**
+symbol in it a root, which is right for a directory loaded by name and wrong for an entry point:
+measured on a gateway, eight entry files contributed **1,234 roots** where the project's own
+`[project.scripts]` declares eight `main`s. With everything an entrance there is no "how do you
+get in", and the heat map ends up measuring the files you declared instead of where a message
+arrives — its top three WERE the declared files, and became the three platform adapters once the
+doors were exact.
+
+```toml
+[surfaces]
+telegram = ["_handle_text_message", "_handle_command"]
+cli      = ["cli.py:main"]              # `file:symbol` when the name is not unique
+```
+
+A surface seeds roots, resolves as a target (`--orient telegram`), and anchors a flow. Without
+one, a walk that starts from a module begins at its heaviest symbol — an inference, and measured
+once, that inference landed on the OUTPUT formatter. The views say so when it happens, and hand
+you the candidate list so you can ask instead of guess.
+
+`mcview --init` proposes the candidates commented out. Naming and grouping them is yours.
+
 ---
 
 ## Reading the output
@@ -306,6 +334,12 @@ reads inside comprehension #2 count as outside comprehension #1. So none of them
 and every `x` resolved to a one-letter function in `render/journey.py` carrying the strongest
 evidence the tool can give. The rule now asks the question about ALL the binders of a name at
 once. A diagram is worth having when it makes a wrong answer look wrong.
+
+And when the question is a JOURNEY rather than a map, `--walkthrough <spec.toml>` draws it: lanes
+per process, stages in order, and the cuts as **bands** rather than arrows. It does not infer the
+journey — it receives it, because the useful unit is a STAGE and a stage is a grouping a person
+makes. What the tool does is refuse to draw a stage whose target does not resolve, so no box on
+the figure was invented. SVG always; PNG only if a converter is already on the machine.
 
 There is a third view, `--atlas`, and it is deliberately **not** shown here. It is an
 interactive 2D canvas, so putting it in this file would mean a screenshot — and the position
@@ -550,6 +584,27 @@ mcview lacks" from 117 to 2,997. What it does not catch is equally measured — 
 edge. That check was built and discarded when reintroducing a real precision bug moved it by
 zero, twice. An index that resolves ~38% of references cannot be the precision oracle of one
 that resolves all of them; it is missing the case, not the criterion.
+
+The eighth asks whether the same command over the same code gives the same answer. It should be
+too obvious to test and it was not: twelve views depended on `PYTHONHASHSEED`, and not only in
+the order of equal rows — the fraction of paths crossing one symbol came out at 67% under one
+seed and 72% under another. A percentage that moves with string hashing is not a measurement.
+
+Five causes, one shape: something walked a `set`, and either broke a tie by insertion order or
+ACCUMULATED FLOATS. Floating-point addition is not associative, so the same set summed in a
+different order returned `0.023309784847592552` against `...555` — invisible on screen, enough
+to change a hash, enough to flip a rounded percentage on a boundary. All five are fixed at their
+source, never at the view that showed them.
+
+It runs in 9.5 s, and it replaced a 21-minute harness that verified nothing: that one ran the
+CLI as a subprocess once per case, so every case re-parsed the whole repository. Its baseline
+had never been recorded, its seed mode died on an import, and its scoping flag was parsed and
+never used — three modes, none working. Its own docstring said an hour-long lock does not get
+run, and one that does not get run is not a lock.
+
+Two of these locks carry a fingerprint of the source tree, because both of them once mistook a
+repository somebody was editing for a regression. A lock that fabricates a catastrophe trains
+you to ignore it, which is worse than not having one.
 
 ---
 

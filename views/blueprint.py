@@ -80,6 +80,13 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
             "symbols": simbolos[m], "files": len(archivos[m]),
             "mass_pct": round(100.0 * masa[m] / total, 2),
             "cold": frios[m],
+            # Per node and not only in the header, because a project is almost never all one
+            # or all the other: measured on a real frontend, 17 nodes were declared lines of
+            # work and 9 were directories that fell through, under a single `grouping:
+            # "declared"` that said nothing about the mix. Whoever labels this needs to know
+            # WHICH node is a folder — writing a responsibility for `app/tenants` is how a
+            # picture of the file tree passes for a picture of the system.
+            "declared": m in cfg.modules,
             "levels": {k: v for k, v in por_nivel[m].items() if k},
             "area": cfg.area_of(sorted(archivos[m])[0]),
         }
@@ -153,9 +160,28 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
                      "note": "the join to another repository travels as a literal, not as a "
                              "call."})
 
+    caidos = [n["id"] for n in nodes if not n["declared"]]
+    avisos = []
+    if caidos:
+        avisos.append(
+            f"{len(caidos)} of {len(nodes)} nodes are DIRECTORIES, not declared lines of work "
+            f"({', '.join(caidos[:6])}{'…' if len(caidos) > 6 else ''}). They are folders that "
+            f"no `[modules]` entry covers. Label them as folders or do not draw them.")
+    if not doors:
+        # The single most important element for the reader this output exists for — "where do
+        # I come in" is the first question somebody who does not read code asks — and it was
+        # coming back as an empty list with no explanation. Absent and silent are the same
+        # thing on a diagram.
+        avisos.append(
+            "NO DOORS: this project declares no `[surfaces]`, so the diagram cannot show where "
+            "a user enters. That is a declaration, not a measurement — `mcview --init` proposes "
+            "the candidates commented out; naming and grouping them is the part only a person "
+            "can do.")
+
     return {
         "project": cfg.name,
         "grouping": "declared" if cfg.modules else "directory",
+        "warnings": avisos,
         "grouping_note": (None if cfg.modules else
                           "no [modules] in the .toml: these nodes are DIRECTORIES, which "
                           "measure physical proximity and not responsibility. Label them as "
@@ -180,12 +206,15 @@ def report(r: dict) -> str:
          f"{len(r['cuts'])} cuts    (grouping: {r['grouping']})\n"]
     if r["grouping_note"]:
         f += [f"  ⚠ {r['grouping_note']}\n"]
+    for a in r.get("warnings", ()):
+        f += [f"  ⚠ {a}\n"]
     ancho = max((len(n["id"]) for n in r["nodes"]), default=8)
     f.append(f"  {'node':{ancho}}  {'sym':>5} {'mass':>7} {'cold':>5}   responsibility")
     f.append("  " + "-" * (ancho + 34))
     for n in r["nodes"][:25]:
+        marca = "" if n["declared"] else "  [folder]"
         f.append(f"  {n['id'][:ancho]:{ancho}}  {n['symbols']:5} {n['mass_pct']:6.2f}% "
-                 f"{n['cold']:5}   {n['responsibility'] or '— to be named'}")
+                 f"{n['cold']:5}   {n['responsibility'] or '— to be named'}{marca}")
     if len(r["nodes"]) > 25:
         f.append(f"  … and {len(r['nodes']) - 25} more nodes")
 

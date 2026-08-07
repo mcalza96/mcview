@@ -46,6 +46,19 @@ DEFAULT_IGNORED = {
 }
 
 
+def split_surface_target(t: str) -> tuple[str, str]:
+    """`"cli.py:main"` → `("cli.py", "main")`; `"_handle_text"` → `("", "_handle_text")`.
+
+    It lives here, in the layer both sides import, because a surface has TWO readers — the one
+    that seeds roots from it and the one that resolves the doors for a diagram — and each
+    parsing it on its own is how they diverge. Measured: they did. The seeding understood
+    `file:symbol` and the door resolver did not, so seven declared doors seeded 17 roots and
+    resolved to NOTHING at the same time, in the same run.
+    """
+    archivo, sep, simbolo = t.rpartition(":")
+    return (archivo, simbolo) if sep and archivo else ("", t)
+
+
 @dataclass
 class Config:
     name: str

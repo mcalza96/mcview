@@ -44,6 +44,9 @@ COHESION_MINIMA = 0.15  # below this it is not a module: it is crosscutting infr
 
 
 # ------------------------------------------------------------------ resolve
+from config import split_surface_target as _config_split
+
+
 def resolve(project, target: str) -> dict:
     """A target can be a declared module, a path, or a symbol name.
 
@@ -77,10 +80,12 @@ def resolve(project, target: str) -> dict:
             #
             # So the exact symbols are kept alongside. `files` stays for the brief —cohesion
             # and mass are per file— and `symbol_ids` is what seeds a flow.
-            exactos |= {sid for sid, sym in project.symbols.items() if sym.name == t}
             d = resolve(project, t)
-            if "error" not in d:
-                archivos |= set(d.get("files", ()))
+            if "error" in d:
+                continue
+            archivos |= set(d.get("files", ()))
+            exactos |= set(d.get("symbol_ids") or
+                           {sid for sid, sym in project.symbols.items() if sym.name == t})
         if exactos:
             return {"kind": "surface", "name": name,
                     "files": sorted({project.symbols[i].file for i in exactos}),
@@ -90,6 +95,20 @@ def resolve(project, target: str) -> dict:
             # of my own invention: the consumers read `name`, and a fourth shape crashed
             # `--orient` with a KeyError the moment a surface was asked for by name.
             return {"kind": "surface", "name": name, "files": sorted(archivos)}
+
+    # 0.5 — `file.py:symbol`, a FIRST-CLASS target form and not a surface-only trick. It was
+    # parsed only inside the surface branch, so seeding roots understood it and resolving the
+    # doors did not: seven declared doors produced 17 roots and resolved to NOTHING in the same
+    # run. Two readers of one declaration, diverging — which is the shape this tool exists to
+    # make impossible, committed here.
+    arch_obj, simbolo_obj = _config_split(obj)
+    if arch_obj:
+        ids = {sid for sid, s in project.symbols.items()
+               if s.name == simbolo_obj and s.file == arch_obj}
+        if ids:
+            return {"kind": "symbol", "name": obj,
+                    "files": sorted({project.symbols[i].file for i in ids}),
+                    "symbol_ids": sorted(ids)}
 
     # 1 — declared module (exact, then by prefix)
     for name in cfg.modules:

@@ -388,9 +388,10 @@ class Project:
             for t in objetivos:
                 # `file.py:symbol` when the name is not unique — `main` exists once per
                 # entry point, so naming it alone would seed all of them at once.
-                archivo, _, simbolo = t.rpartition(":")
+                from config import split_surface_target
+                archivo, simbolo = split_surface_target(t)
                 ids = {sid for sid, s in self.symbols.items()
-                       if s.name == (simbolo or t) and (not archivo or s.file == archivo)}
+                       if s.name == simbolo and (not archivo or s.file == archivo)}
                 if not ids:
                     continue
                 self.roots |= ids

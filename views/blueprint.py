@@ -49,37 +49,37 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
     """The conceptual graph of the whole system, at the level of lines of work."""
     cfg = project.cfg
     levels = project.levels()
-    nivel_de = {s: lv for lv, ss in levels.items() for s in ss}
+    level_of = {s: lv for lv, ss in levels.items() for s in ss}
 
     # -- nodes ----------------------------------------------------------------
-    masa, simbolos, archivos, frios = (defaultdict(float), defaultdict(int),
+    mass, symbols_of, files_of, cold = (defaultdict(float), defaultdict(int),
                                        defaultdict(set), defaultdict(int))
-    por_nivel: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    ejecutados: dict[str, int] = defaultdict(int)
+    by_level: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    ran: dict[str, int] = defaultdict(int)
     for sid, r in rank.items():
         s = project.symbols[sid]
         m = cfg.module_of(s.file)
-        masa[m] += r
-        simbolos[m] += 1
-        archivos[m].add(s.file)
+        mass[m] += r
+        symbols_of[m] += 1
+        files_of[m].add(s.file)
         if r <= 1e-12:
-            frios[m] += 1
-        por_nivel[m][nivel_de.get(sid, "")] += 1
+            cold[m] += 1
+        by_level[m][level_of.get(sid, "")] += 1
         if obs is not None and sid in obs:
-            ejecutados[m] += 1
-    total = sum(masa.values()) or 1.0
+            ran[m] += 1
+    total = sum(mass.values()) or 1.0
 
     nodes = []
-    for m in sorted(masa, key=lambda x: (-masa[x], x)):
+    for m in sorted(mass, key=lambda x: (-mass[x], x)):
         n = {
             "id": m,
             # Deliberately EMPTY. It is the one field this module cannot fill, and leaving it
             # named and blank is what turns "we did not compute it" into a visible hole rather
             # than an absence nobody notices.
             "responsibility": None,
-            "symbols": simbolos[m], "files": len(archivos[m]),
-            "mass_pct": round(100.0 * masa[m] / total, 2),
-            "cold": frios[m],
+            "symbols": symbols_of[m], "files": len(files_of[m]),
+            "mass_pct": round(100.0 * mass[m] / total, 2),
+            "cold": cold[m],
             # Per node and not only in the header, because a project is almost never all one
             # or all the other: measured on a real frontend, 17 nodes were declared lines of
             # work and 9 were directories that fell through, under a single `grouping:
@@ -87,21 +87,21 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
             # WHICH node is a folder — writing a responsibility for `app/tenants` is how a
             # picture of the file tree passes for a picture of the system.
             "declared": m in cfg.modules,
-            "levels": {k: v for k, v in por_nivel[m].items() if k},
-            "area": cfg.area_of(sorted(archivos[m])[0]),
+            "levels": {k: v for k, v in by_level[m].items() if k},
+            "area": cfg.area_of(sorted(files_of[m])[0]),
         }
         if obs is not None:
-            n["seen_running"] = ejecutados[m]
+            n["seen_running"] = ran[m]
         nodes.append(n)
-    conocidos = {n["id"] for n in nodes}
+    known = {n["id"] for n in nodes}
 
     # -- edges ----------------------------------------------------------------
     # TWO counts per edge and not one, for the same reason the reach set reports two closures:
     # a module pair joined only through a shared name is not joined. Measured elsewhere in this
     # tool, that difference was 553 reachable symbols against 1 that held up.
     refs: dict[tuple[str, str], int] = defaultdict(int)
-    fuertes: dict[tuple[str, str], int] = defaultdict(int)
-    muestra: dict[tuple[str, str], list[str]] = defaultdict(list)
+    strong: dict[tuple[str, str], int] = defaultdict(int)
+    sample: dict[tuple[str, str], list[str]] = defaultdict(list)
     for o, ds in project.edges.items():
         so = project.symbols.get(o)
         if not so:
@@ -123,30 +123,30 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
                 continue                 # inside a node; the diagram is between nodes
             refs[(a, b)] += 1
             if d in firmes:
-                fuertes[(a, b)] += 1
-                if len(muestra[(a, b)]) < 3:
+                strong[(a, b)] += 1
+                if len(sample[(a, b)]) < 3:
                     # Concrete evidence, so a reader can go and check ONE line instead of
                     # believing the arrow.
-                    muestra[(a, b)].append(f"{so.file}:{so.line} {so.name} → "
+                    sample[(a, b)].append(f"{so.file}:{so.line} {so.name} → "
                                            f"{sd.file}:{sd.line} {sd.name}")
 
-    edges = [{"from": a, "to": b, "refs": n, "unambiguous": fuertes[(a, b)],
-              "evidence": muestra[(a, b)]}
+    edges = [{"from": a, "to": b, "refs": n, "unambiguous": strong[(a, b)],
+              "evidence": sample[(a, b)]}
              for (a, b), n in sorted(refs.items(), key=lambda x: (-x[1], x[0]))
-             if a in conocidos and b in conocidos]
+             if a in known and b in known]
 
     # -- doors ----------------------------------------------------------------
     import locks as _locks
 
     doors = []
-    for nombre, objetivos in (getattr(cfg, "surfaces", {}) or {}).items():
+    for name, objetivos in (getattr(cfg, "surfaces", {}) or {}).items():
         alcanza: set[str] = set()
         for o in objetivos:
             ids, err = _locks._resolve(project, o)
             if not err:
                 alcanza |= {cfg.module_of(project.symbols[i].file)
                             for i in ids if i in project.symbols}
-        doors.append({"id": nombre, "declared": list(objetivos),
+        doors.append({"id": name, "declared": list(objetivos),
                       "enters": sorted(alcanza)})
 
     # -- cuts -----------------------------------------------------------------
@@ -166,19 +166,19 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
                      "note": "the join to another repository travels as a literal, not as a "
                              "call."})
 
-    caidos = [n["id"] for n in nodes if not n["declared"]]
-    avisos = []
-    if caidos:
-        avisos.append(
-            f"{len(caidos)} of {len(nodes)} nodes are DIRECTORIES, not declared lines of work "
-            f"({', '.join(caidos[:6])}{'…' if len(caidos) > 6 else ''}). They are folders that "
+    fallen = [n["id"] for n in nodes if not n["declared"]]
+    warnings = []
+    if fallen:
+        warnings.append(
+            f"{len(fallen)} of {len(nodes)} nodes are DIRECTORIES, not declared lines of work "
+            f"({', '.join(fallen[:6])}{'…' if len(fallen) > 6 else ''}). They are folders that "
             f"no `[modules]` entry covers. Label them as folders or do not draw them.")
     if not doors:
         # The single most important element for the reader this output exists for — "where do
         # I come in" is the first question somebody who does not read code asks — and it was
         # coming back as an empty list with no explanation. Absent and silent are the same
         # thing on a diagram.
-        avisos.append(
+        warnings.append(
             "NO DOORS: this project declares no `[surfaces]`, so the diagram cannot show where "
             "a user enters. That is a declaration, not a measurement — `mcview --init` proposes "
             "the candidates commented out; naming and grouping them is the part only a person "
@@ -187,7 +187,7 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
     return {
         "project": cfg.name,
         "grouping": "declared" if cfg.modules else "directory",
-        "warnings": avisos,
+        "warnings": warnings,
         "grouping_note": (None if cfg.modules else
                           "no [modules] in the .toml: these nodes are DIRECTORIES, which "
                           "measure physical proximity and not responsibility. Label them as "
@@ -218,9 +218,9 @@ def report(r: dict) -> str:
     f.append(f"  {'node':{ancho}}  {'sym':>5} {'mass':>7} {'cold':>5}   responsibility")
     f.append("  " + "-" * (ancho + 34))
     for n in r["nodes"][:25]:
-        marca = "" if n["declared"] else "  [folder]"
+        mark = "" if n["declared"] else "  [folder]"
         f.append(f"  {n['id'][:ancho]:{ancho}}  {n['symbols']:5} {n['mass_pct']:6.2f}% "
-                 f"{n['cold']:5}   {n['responsibility'] or '— to be named'}{marca}")
+                 f"{n['cold']:5}   {n['responsibility'] or '— to be named'}{mark}")
     if len(r["nodes"]) > 25:
         f.append(f"  … and {len(r['nodes']) - 25} more nodes")
 
@@ -270,7 +270,7 @@ def door_candidates(project, top: int = 8) -> tuple[list[str], str]:
                 puertas[s.file] += 1
 
     if puertas:
-        return ([f"{a}  ({n} entradas)" for a, n in puertas.most_common(top)],
+        return ([f"{a}  ({n} entries)" for a, n in puertas.most_common(top)],
                 "ASK THE USER which of these files are the doors of the product and how to "
                 "GROUP them (\"the web app\", \"the Telegram webhook\"). The grouping is a "
                 "statement about the product; nothing in the code knows it. Then declare them "

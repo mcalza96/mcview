@@ -242,8 +242,7 @@ def _matrix(project):
 def modularity(particion, idx, A) -> float:
     """Newman's Q: density INSIDE the groups minus what chance would predict.
 
-    Q > 0.3 se considera estructura de communities clara; Q < 0.3, acoplamiento
-    high. It serves two different purposes: scoring a DECLARED partition and finding the
+    Q > 0.3 counts as clear community structure; Q < 0.3, high coupling. It serves two different purposes: scoring a DECLARED partition and finding the
     graph's natural k.
 
     Known limit (Fortunato-Barthelemy): maximizing Q tends to MERGE small communities and the

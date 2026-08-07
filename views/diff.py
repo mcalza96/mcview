@@ -151,7 +151,6 @@ def compare(before: Snapshot, after: Snapshot) -> dict:
             for k in set(a_antes) | set(a_despues)}
 
     # -- mass ------------------------------------------------------------------
-    mass_before = {f["file"]: f["pct"] for f in before.rows}
     mass_after = {f["file"]: f["pct"] for f in after.rows}
     touched = {after.symbols[s][0] for s in nuevos} | {before.symbols[s][0] for s in gone}
     heat = sum(mass_after.get(a, 0.0) for a in touched)

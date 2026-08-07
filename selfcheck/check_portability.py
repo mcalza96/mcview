@@ -237,7 +237,7 @@ def main() -> int:
         if code != 0 or not output.lstrip().startswith("<svg"):
             failures.append(f"--walkthrough failed: {output.strip()[:160]}")
         else:
-            for mark in ("viewBox", "corte", "NO afirma"):
+            for mark in ("viewBox", "corte", "does NOT claim"):
                 if mark not in output:
                     failures.append(f"--walkthrough lost `{mark}` from the figure")
         # An invented stage must STOP it. A figure with one box nobody can check is the

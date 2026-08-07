@@ -75,25 +75,25 @@ def _render(cfg_path: str) -> dict[str, str]:
     # DIFFERENT views while two files were being edited underneath, which reads exactly like
     # non-determinism and is not. A lock that fabricates a catastrophe trains you to ignore it,
     # which is worse than not having one.
-    huella = hashlib.sha256()
+    fingerprint = hashlib.sha256()
     for dirpath, dirnames, filenames in os.walk(cfg.root):
         dirnames[:] = sorted(d for d in dirnames if d not in cfg.ignored_dirs)
-        for nombre in sorted(filenames):
-            ruta = os.path.join(dirpath, nombre)
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
             try:
-                st = os.stat(ruta)
+                st = os.stat(path)
             except OSError:
                 continue
-            huella.update(f"{ruta}:{st.st_mtime_ns}:{st.st_size}".encode())
+            fingerprint.update(f"{path}:{st.st_mtime_ns}:{st.st_size}".encode())
 
     project = _factory.make_project(cfg)          # ← ONCE. The whole point of this file.
     rank = _heatmap.pagerank(project)
     levels = project.levels()
 
-    out: dict[str, str] = {"__tree": huella.hexdigest()[:16]}
+    out: dict[str, str] = {"__tree": fingerprint.hexdigest()[:16]}
 
-    def firma(nombre: str, texto: str):
-        out[nombre] = hashlib.sha256(texto.encode("utf-8")).hexdigest()[:16]
+    def firma(name: str, text: str):
+        out[name] = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
 
     firma("census", _json.dumps({k: sorted(v) for k, v in levels.items()}, sort_keys=True))
     firma("map", _json.dumps(_heatmap.by_file(project, rank), sort_keys=True, default=str))
@@ -102,8 +102,8 @@ def _render(cfg_path: str) -> dict[str, str]:
     firma("seams", _json.dumps(_seams.detect(project), sort_keys=True, default=str))
 
     objetivos = sorted(cfg.modules)[:3] or [sorted({s.file for s in project.symbols.values()})[0]]
-    for i, objetivo in enumerate(objetivos):
-        r = _orient.orient(project, rank, levels, None, objetivo)
+    for i, target in enumerate(objetivos):
+        r = _orient.orient(project, rank, levels, None, target)
         firma(f"orient{i}", _json.dumps(r, sort_keys=True, default=str))
         if "error" in r:
             continue
@@ -116,9 +116,9 @@ def _render(cfg_path: str) -> dict[str, str]:
         firma(f"mermaid-map{i}", _flow.mermaid(r["flow"], r["target"], usan, depende,
                                                _flow._internal_parts(files)))
         firma(f"mermaid-seq{i}", _flow.mermaid_sequence(r["flow"], r["target"]))
-        s = _seq.trace(project, objetivo, rank)
+        s = _seq.trace(project, target, rank)
         firma(f"sequence{i}", _json.dumps(s, sort_keys=True, default=str))
-        firma(f"reach{i}", _json.dumps(_seq.reach_all(project, objetivo, rank),
+        firma(f"reach{i}", _json.dumps(_seq.reach_all(project, target, rank),
                                        sort_keys=True, default=str))
     return out
 
@@ -129,8 +129,8 @@ def main() -> int:
     # both sides by construction, which a second script would not.
     if "--worker" in sys.argv:
         cfg = sys.argv[sys.argv.index("--worker") + 1]
-        for nombre, sha in sorted(_render(cfg).items()):
-            print(f"{nombre}\t{sha}")
+        for name, sha in sorted(_render(cfg).items()):
+            print(f"{name}\t{sha}")
         return 0
 
     raiz = os.path.dirname(os.path.dirname(AQUI))
@@ -149,7 +149,7 @@ def main() -> int:
     # alphabet — which does exercise the TypeScript parser, but the machinery under suspicion
     # is shared and the main config is the bigger, more representative graph.
     cfg = os.path.join(raiz, "mcview.toml" if "mcview.toml" in configs else configs[0])
-    salidas = []
+    outputs = []
     for seed in SEEDS:
         env = dict(os.environ, PYTHONHASHSEED=seed)
         r = subprocess.run([sys.executable, os.path.abspath(__file__), "--worker", cfg],
@@ -157,9 +157,9 @@ def main() -> int:
         if r.returncode != 0:
             print(f"  ✗ the pass with PYTHONHASHSEED={seed} failed:\n{r.stderr[-600:]}")
             return 1
-        salidas.append(dict(l.split("\t") for l in r.stdout.strip().splitlines() if "\t" in l))
+        outputs.append(dict(l.split("\t") for l in r.stdout.strip().splitlines() if "\t" in l))
 
-    a, b = salidas
+    a, b = outputs
     # The tree first, and it is not one failure among others: if the code moved, EVERY
     # difference below is unexplained and reporting them as non-determinism would be a lie
     # with hashes behind it.
@@ -169,14 +169,14 @@ def main() -> int:
               "to hold still, and it does not check\n    determinism against a moving target.")
         return 0
 
-    fallas = [f"{k}: the output depends on PYTHONHASHSEED ({a[k]} vs {b[k]})"
+    failures = [f"{k}: the output depends on PYTHONHASHSEED ({a[k]} vs {b[k]})"
               for k in sorted(a) if k != "__tree" and a.get(k) != b.get(k)]
-    for f in fallas:
+    for f in failures:
         print(f"  ✗ {f}")
-    if not fallas:
+    if not failures:
         print(f"  ✓ determinism: {len(a) - 1} views identical under PYTHONHASHSEED "
               f"{' and '.join(SEEDS)} · {os.path.basename(cfg)}")
-    return 1 if fallas else 0
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

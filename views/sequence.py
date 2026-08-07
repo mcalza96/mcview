@@ -148,11 +148,11 @@ def report(weave, r: dict) -> str:
     # read like a fact.
     if r["of_candidates"] > 1 and not getattr(weave.cfg, "surfaces", None):
         import blueprint as _bp
-        cands, pregunta = _bp.door_candidates(weave)
+        candidates, question = _bp.door_candidates(weave)
         f += ["  \u26a0 no [surfaces] declared: this origin was CHOSEN BY MASS, not by a door.",
               "    Everything below is conditioned on a starting point nobody declared.", ""]
-        f += [f"      {c}" for c in cands]
-        f += ["", "    " + pregunta, ""]
+        f += [f"      {c}" for c in candidates]
+        f += ["", "    " + question, ""]
 
     def descend(n: dict, depth_lvl: int):
         indent = "   " + "  " * depth_lvl
@@ -283,7 +283,7 @@ def reach_all(weave, entry: str, rank: dict[str, float], obs: dict[str, int] | N
     if err:
         return {"error": err}
 
-    def clausura(aristas) -> set[str]:
+    def closure(aristas) -> set[str]:
         frontier, vistos = set(ids), set(ids)
         while frontier:
             siguiente: set[str] = set()
@@ -303,15 +303,15 @@ def reach_all(weave, entry: str, rank: dict[str, float], obs: dict[str, int] | N
     # The strong closure only follows names that belong to ONE symbol. Reporting both keeps the
     # same grade-of-evidence contract the liveness census uses: the wide number fails open, and
     # the narrow one says how much of it you can actually stand on.
-    alcanzables = clausura(weave.edges)
-    inequivocos = clausura(weave.strong_edges)
+    reachable = closure(weave.edges)
+    unambiguous = closure(weave.strong_edges)
 
-    aristas = sum(1 for s in alcanzables for d in weave.edges.get(s, ()) if d in alcanzables)
+    aristas = sum(1 for s in reachable for d in weave.edges.get(s, ()) if d in reachable)
 
     visitas: dict[str, float] = {}
     try:
         import markov as _markov
-        P = _markov.transitions(weave, alcanzables)
+        P = _markov.transitions(weave, reachable)
         visitas = _markov.expected_visits(P, set(ids))
     except Exception:  # noqa: BLE001
         # The weight is optional and the SET is not. Both run on the bare stdlib —
@@ -323,27 +323,27 @@ def reach_all(weave, entry: str, rank: dict[str, float], obs: dict[str, int] | N
         visitas = {}
 
     total = sum(visitas.values()) or 1.0
-    por_linea: dict[str, dict] = {}
-    for sid in sorted(alcanzables):
+    by_line: dict[str, dict] = {}
+    for sid in sorted(reachable):
         linea = _lane(weave, sid)
-        fila = por_linea.setdefault(linea, {"line": linea, "symbols": 0, "unambiguous": 0,
+        row = by_line.setdefault(linea, {"line": linea, "symbols": 0, "unambiguous": 0,
                                             "share": 0.0, "executed": 0})
-        fila["symbols"] += 1
-        if sid in inequivocos:
-            fila["unambiguous"] += 1
-        fila["share"] += visitas.get(sid, 0.0) / total
+        row["symbols"] += 1
+        if sid in unambiguous:
+            row["unambiguous"] += 1
+        row["share"] += visitas.get(sid, 0.0) / total
         if obs is not None and sid in obs:
-            fila["executed"] += 1
+            row["executed"] += 1
 
-    filas = sorted(por_linea.values(), key=lambda x: (-x["share"], -x["symbols"]))
-    out = {"entry": entry, "entries": len(ids), "reachable": len(alcanzables),
-           "unambiguous": len(inequivocos),
+    rows = sorted(by_line.values(), key=lambda x: (-x["share"], -x["symbols"]))
+    out = {"entry": entry, "entries": len(ids), "reachable": len(reachable),
+           "unambiguous": len(unambiguous),
            "edges": aristas, "of_project": len(weave.symbols),
-           "weighted": bool(visitas), "lines": filas}
+           "weighted": bool(visitas), "lines": rows}
     if obs is not None:
-        out["executed"] = sum(1 for s in alcanzables if s in obs)
+        out["executed"] = sum(1 for s in reachable if s in obs)
     if narrated is not None:
-        out["narrated"] = len(narrated & alcanzables)
+        out["narrated"] = len(narrated & reachable)
     return out
 
 

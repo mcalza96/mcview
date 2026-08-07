@@ -560,7 +560,7 @@ invisible.
 | **The skills travel inside** | `orient-session`, `mcview-repo`, `mcview-process`, `mcview-install`. Shipping the engine without the manual is what lets somebody read a ranking as a conclusion. |
 | **Expensive views are not MCP tools** | Full duplicate analysis, `--k`, `--hierarchy`, `--islands` and `--views` run in minutes on a large repo. A call that blocks for minutes is one nobody makes twice. |
 
-Eight self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
+Nine self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
 config key drifting from its reader — the view returns empty, which reads as a finding — and
 encapsulation eroding until the directory no longer copies cleanly. The latter runs the CLI as a
 subprocess from a temporary directory, because importing the modules proves nothing when
@@ -605,6 +605,22 @@ run, and one that does not get run is not a lock.
 Two of these locks carry a fingerprint of the source tree, because both of them once mistook a
 repository somebody was editing for a regression. A lock that fabricates a catastrophe trains
 you to ignore it, which is worse than not having one.
+
+The ninth covers the defect this codebase produces most: a value COMPUTED AND THEN DROPPED.
+Nothing crashes, so the only signal is the absence of an effect nobody was measuring — a flag
+parsed and never passed to what it was scoping, a mode that never ran, a declaration the other
+side never read. It is deliberately narrow: plain assignments only, because counting loop
+unpacking turned one real finding into seven rows, and a check with six harmless rows is one
+people learn to skip. Verified against the commit that still carried the bug, where it names the
+line exactly — and it found three more in the tree it was written for.
+
+The ninth covers the defect this codebase produces most: a value COMPUTED AND THEN DROPPED.
+Nothing crashes, so the only signal is the absence of an effect nobody was measuring — a flag
+parsed and never passed to what it was scoping, a mode that never ran, a declaration the other
+side never read. It is deliberately narrow: plain assignments only, because counting loop
+unpacking turned one real finding into seven rows, and a check with six harmless rows is one
+people learn to skip. Verified against the commit that still had the bug, where it names the
+line exactly.
 
 ---
 

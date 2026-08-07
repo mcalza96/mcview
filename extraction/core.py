@@ -202,10 +202,10 @@ def _own_bound(node) -> set[str]:
     exact opposite of what this filter is after.
     """
     bound: set[str] = set()
-    declarados_afuera: set[str] = set()
+    declared_outer: set[str] = set()
     # Computed ONCE for the whole function: the rule is about all the binders of a name
     # together, so asking it per-comprehension is what let the multi-comprehension case slip.
-    solo_adentro = _bound_only_inside(node)
+    inner_only = _bound_only_inside(node)
     a = node.args
     for x in (*a.posonlyargs, *a.args, *a.kwonlyargs, a.vararg, a.kwarg):
         if x:
@@ -223,10 +223,10 @@ def _own_bound(node) -> set[str]:
             # one-letter symbol the project happened to define. Same conservative rule: bind
             # only when every read of the name is inside a binder of that same name.
             for a in n.args.args + n.args.posonlyargs + n.args.kwonlyargs:
-                if a.arg in solo_adentro:
+                if a.arg in inner_only:
                     bound.add(a.arg)
             for extra in (n.args.vararg, n.args.kwarg):
-                if extra and extra.arg in solo_adentro:
+                if extra and extra.arg in inner_only:
                     bound.add(extra.arg)
             stack.append(n.body)
             stack.extend(n.args.defaults)
@@ -255,7 +255,7 @@ def _own_bound(node) -> set[str]:
             # comprehension, and that read is a legitimate reference.
             for g in n.generators:
                 for t in ast.walk(g.target):
-                    if isinstance(t, ast.Name) and t.id in solo_adentro:
+                    if isinstance(t, ast.Name) and t.id in inner_only:
                         bound.add(t.id)
             stack.extend(g.iter for g in n.generators)
             stack.extend(c for g in n.generators for c in g.ifs)
@@ -263,13 +263,13 @@ def _own_bound(node) -> set[str]:
                                     getattr(n, "value", None)) if x is not None)
             continue
         if isinstance(n, (ast.Global, ast.Nonlocal)):
-            declarados_afuera.update(n.names)
+            declared_outer.update(n.names)
         elif isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
             bound.add(n.id)
         elif isinstance(n, ast.ExceptHandler) and n.name:
             bound.add(n.name)
         stack.extend(ast.iter_child_nodes(n))
-    return bound - declarados_afuera
+    return bound - declared_outer
 
 
 def _decorator_name(d) -> str:
@@ -318,7 +318,7 @@ class Project:
         # symbol → names bound in its scope (its own + inherited from the enclosing ones).
         # A read of one of those names does NOT reference the project's homonymous symbol.
         self._locales: dict[str, set[str]] = {}
-        # `{archivo: {alias: nombre_real}}` — ver `_analyze`.
+        # `{file_of: {alias: nombre_real}}` — ver `_analyze`.
         self._alias: dict[str, dict[str, str]] = {}
         self._arboles: dict[str, ast.AST] = {}
         self._build()
@@ -384,14 +384,14 @@ class Project:
 
     def _seed_from_surfaces(self) -> None:
         """`[surfaces]` → roots. A door is a door whether or not it is also in `dirs`."""
-        for nombre, objetivos in (getattr(self.cfg, "surfaces", {}) or {}).items():
+        for name, objetivos in (getattr(self.cfg, "surfaces", {}) or {}).items():
             for t in objetivos:
                 # `file.py:symbol` when the name is not unique — `main` exists once per
                 # entry point, so naming it alone would seed all of them at once.
                 from config import split_surface_target
-                archivo, simbolo = split_surface_target(t)
+                file_of, symbol = split_surface_target(t)
                 ids = {sid for sid, s in self.symbols.items()
-                       if s.name == simbolo and (not archivo or s.file == archivo)}
+                       if s.name == symbol and (not file_of or s.file == file_of)}
                 if not ids:
                     continue
                 self.roots |= ids

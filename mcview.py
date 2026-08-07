@@ -96,7 +96,6 @@ def CACHE_WEAVE():
 
 def main():
     ap = argparse.ArgumentParser(description="a repository entropy census")
-    aqui = os.path.dirname(os.path.abspath(__file__))
     ap.add_argument("--config", help="path to a .toml; by default `mcview.toml` is discovered "
                                      "by walking up from the current directory")
     ap.add_argument("--project", help="shortcut: uses `mcview.<name>.toml` from the root")

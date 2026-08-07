@@ -187,7 +187,7 @@ def purity(grupos, nodes, project, min_grupo=5):
 
 
 def nmi(grupos, project, min_grupo=3):
-    """Informacion mutua normalizada contra la particion declarada.
+    """Normalised mutual information against the declared partition.
 
     PURITY is no good for comparing views: it grows with k by construction —in the limit,
     single-symbol groups give purity 1.0— and the views produce very different k. NMI

@@ -40,11 +40,11 @@ import tomllib
 # Measured in a browser at these sizes, and it only has to be an UPPER bound: the wrap breaks
 # earlier than it must, which costs a line and never overlaps. Guessing low is what puts one
 # box's text on top of the next.
-ANCHO_CHAR = {"titulo": 8.4, "nota": 6.3, "medida": 6.0}
+CHAR_W = {"titulo": 8.4, "nota": 6.3, "medida": 6.0}
 
-ANCHO_CAJA, ALTO_MIN = 300, 96
-MARGEN, HUECO = 28, 18
-ANCHO = 1360
+BOX_W, BOX_MIN_H = 300, 96
+MARGIN, GAP = 28, 18
+WIDTH = 1360
 
 
 def load(path: str) -> dict:
@@ -62,169 +62,169 @@ def verify(project, spec: dict) -> list[str]:
     """
     import locks as _locks
 
-    fallas = []
+    failures = []
     for st in spec.get("stage", []):
-        objetivo = st.get("verify")
-        if not objetivo:
-            fallas.append(f"stage «{st.get('title', '?')}»: no `verify` — it cannot be checked")
+        target = st.get("verify")
+        if not target:
+            failures.append(f"stage «{st.get('title', '?')}»: no `verify` — it cannot be checked")
             continue
         # The weave has its OWN resolver —`project▸target`— and the project's does not know
         # the prefix. Calling the wrong one reports "does not resolve" for targets that do,
         # which is a verification that fails closed on correct input: the worst kind.
-        ids, err = (project.resolve(objetivo) if hasattr(project, "resolve")
-                    else _locks._resolve(project, objetivo))
+        ids, err = (project.resolve(target) if hasattr(project, "resolve")
+                    else _locks._resolve(project, target))
         if err or not ids:
-            fallas.append(f"stage «{st.get('title', '?')}»: «{objetivo}» does not resolve"
+            failures.append(f"stage «{st.get('title', '?')}»: «{target}» does not resolve"
                           f"{' — ' + err if err else ''}")
-    carriles = {c["id"] for c in spec.get("lane", [])}
+    lane_ids = {c["id"] for c in spec.get("lane", [])}
     for st in spec.get("stage", []):
-        if st.get("lane") not in carriles:
-            fallas.append(f"stage «{st.get('title', '?')}»: lane «{st.get('lane')}» not declared")
+        if st.get("lane") not in lane_ids:
+            failures.append(f"stage «{st.get('title', '?')}»: lane «{st.get('lane')}» not declared")
     for cut in spec.get("cut", []):
-        if cut.get("after") not in carriles:
-            fallas.append(f"cut after «{cut.get('after')}»: that lane is not declared")
-    return fallas
+        if cut.get("after") not in lane_ids:
+            failures.append(f"cut after «{cut.get('after')}»: that lane is not declared")
+    return failures
 
 
-def _wrap(texto: str, ancho_px: float, clase: str) -> list[str]:
+def _wrap(text: str, width_px: float, kind: str) -> list[str]:
     """Word wrap by MEASURED width, not by character count.
 
     Counting characters treats `iii` and `WWW` as equal and puts the long one over the next
     box. It is an approximation —no font metrics without a font engine— but it is an upper
     bound, so it breaks early and never late.
     """
-    if not texto:
+    if not text:
         return []
-    avance = ANCHO_CHAR[clase]
-    lineas, actual = [], ""
-    for palabra in texto.split():
-        prueba = f"{actual} {palabra}".strip()
-        if len(prueba) * avance <= ancho_px or not actual:
-            actual = prueba
+    advance = CHAR_W[kind]
+    lines, current = [], ""
+    for word in text.split():
+        candidate = f"{current} {word}".strip()
+        if len(candidate) * advance <= width_px or not current:
+            current = candidate
         else:
-            lineas.append(actual)
-            actual = palabra
-    if actual:
-        lineas.append(actual)
-    return lineas
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return lines
 
 
-def _alto_caja(st: dict) -> float:
-    n = len(_wrap(st.get("note", ""), ANCHO_CAJA - 32, "nota"))
-    m = len(_wrap(st.get("measured", ""), ANCHO_CAJA - 32, "medida"))
-    return max(ALTO_MIN, 46 + n * 17 + (14 + m * 15 if m else 0))
+def _box_height(st: dict) -> float:
+    n = len(_wrap(st.get("note", ""), BOX_W - 32, "nota"))
+    m = len(_wrap(st.get("measured", ""), BOX_W - 32, "medida"))
+    return max(BOX_MIN_H, 46 + n * 17 + (14 + m * 15 if m else 0))
 
 
 def draw(spec: dict, cuts: list[dict] | None = None,
          caveats: dict | None = None) -> str:
-    # DOS fuentes y una sola lista: el `[[cut]]` de la spec dice DÓNDE va el corte (`after`),
+    # DOS fuentes y una sola lista: el `[[cut]]` de la spec dice DÓNDE va el cut (`after`),
     # y el blueprint dice QUÉ cortes existen de verdad. Tomar sólo los del blueprint dejaba
-    # `after` sin llenar y el corte no se dibujaba — la figura salía sin lo más importante que
+    # `after` sin llenar y el cut no se dibujaba — la figura salía sin lo más importante que
     # tiene, y sin ningún error.
-    declarados = list(spec.get("cut", []))
-    reales = {(c.get("at") or c.get("id")) for c in (cuts or [])}
-    for c in declarados:
+    declared = list(spec.get("cut", []))
+    real_cuts = {(c.get("at") or c.get("id")) for c in (cuts or [])}
+    for c in declared:
         c.setdefault("kind", "declared")
-        if c.get("at") and c["at"] not in reales:
+        if c.get("at") and c["at"] not in real_cuts:
             c["ojo"] = True             # declarado en la spec y no confirmado por el blueprint
-    cuts = declarados or list(cuts or [])
-    por_carril: dict[str, list[dict]] = {}
+    cuts = declared or list(cuts or [])
+    by_lane: dict[str, list[dict]] = {}
     for st in spec.get("stage", []):
-        por_carril.setdefault(st["lane"], []).append(st)
+        by_lane.setdefault(st["lane"], []).append(st)
 
     # ── layout, computed before a single element is emitted ──────────────────
     # The canvas has to grow with the content. A constant height is how a footer ends up
     # outside the viewBox, invisible and impossible to notice from the code.
-    util = ANCHO - 2 * MARGEN
-    por_fila = max(1, int((util - 2 * HUECO) // (ANCHO_CAJA + HUECO)))
+    usable = WIDTH - 2 * MARGIN
+    per_row = max(1, int((usable - 2 * GAP) // (BOX_W + GAP)))
     plan, y = [], 96
-    cortes_por_carril = {c["after"]: c for c in cuts if c.get("after")}
+    cut_after = {c["after"]: c for c in cuts if c.get("after")}
     for lane in spec.get("lane", []):
-        etapas = por_carril.get(lane["id"], [])
-        filas = [etapas[i:i + por_fila] for i in range(0, len(etapas), por_fila)] or [[]]
-        alto_filas = [max((_alto_caja(s) for s in fila), default=40) for fila in filas]
-        alto = 44 + sum(alto_filas) + HUECO * (len(filas) - 1) + 18
-        plan.append({"lane": lane, "y": y, "alto": alto, "filas": filas,
-                     "alto_filas": alto_filas})
-        y += alto + 20
-        if lane["id"] in cortes_por_carril:
+        stages = by_lane.get(lane["id"], [])
+        rows = [stages[i:i + per_row] for i in range(0, len(stages), per_row)] or [[]]
+        row_heights = [max((_box_height(s) for s in row), default=40) for row in rows]
+        height = 44 + sum(row_heights) + GAP * (len(rows) - 1) + 18
+        plan.append({"lane": lane, "y": y, "height": height, "rows": rows,
+                     "row_heights": row_heights})
+        y += height + 20
+        if lane["id"] in cut_after:
             y += 74
     # MEDIDO, no estimado. Con una constante el último caveat quedaba fuera del viewBox:
     # invisible en el SVG e imposible de notar leyendo el código. Es el tercero de los tres
     # defectos que este módulo dice prevenir por construcción, cometido en su primera figura.
-    lineas_pie = sum(len(_wrap(f"· {k}: {v}", util - 10, "nota")) + 1
+    lineas_pie = sum(len(_wrap(f"· {k}: {v}", usable - 10, "nota")) + 1
                      for k, v in (caveats or {}).items())
-    alto_total = y + 46 + 21 + lineas_pie * 16 + 24
+    total_h = y + 46 + 21 + lineas_pie * 16 + 24
 
-    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {ANCHO} {alto_total:.0f}" '
-         f'width="{ANCHO}" height="{alto_total:.0f}" font-family="-apple-system,Segoe UI,'
+    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {total_h:.0f}" '
+         f'width="{WIDTH}" height="{total_h:.0f}" font-family="-apple-system,Segoe UI,'
          f'Helvetica,Arial,sans-serif">',
-         f'<rect width="{ANCHO}" height="{alto_total:.0f}" fill="#FFFFFF"/>']
-    esc = html.escape
+         f'<rect width="{WIDTH}" height="{total_h:.0f}" fill="#FFFFFF"/>']
+    q = html.escape
 
-    o.append(f'<text x="{MARGEN}" y="46" font-size="27" font-weight="700" fill="#0F172A">'
-             f'{esc(spec.get("title", "recorrido"))}</text>')
+    o.append(f'<text x="{MARGIN}" y="46" font-size="27" font-weight="700" fill="#0F172A">'
+             f'{q(spec.get("title", "recorrido"))}</text>')
     if spec.get("subtitle"):
-        o.append(f'<text x="{MARGEN}" y="72" font-size="13" fill="#64748B">'
-                 f'{esc(spec["subtitle"])}</text>')
+        o.append(f'<text x="{MARGIN}" y="72" font-size="13" fill="#64748B">'
+                 f'{q(spec["subtitle"])}</text>')
 
     for p in plan:
-        lane, y0, alto = p["lane"], p["y"], p["alto"]
-        tono = lane.get("color", "#F8FAFC")
-        o.append(f'<rect x="{MARGEN}" y="{y0}" width="{util}" height="{alto}" rx="14" '
-                 f'fill="{tono}" stroke="#E2E8F0"/>')
-        o.append(f'<text x="{MARGEN + 20}" y="{y0 + 26}" font-size="11.5" font-weight="700" '
-                 f'letter-spacing="1.1" fill="#94A3B8">{esc(lane.get("title", lane["id"]).upper())}</text>')
+        lane, y0, height = p["lane"], p["y"], p["height"]
+        tint = lane.get("color", "#F8FAFC")
+        o.append(f'<rect x="{MARGIN}" y="{y0}" width="{usable}" height="{height}" rx="14" '
+                 f'fill="{tint}" stroke="#E2E8F0"/>')
+        o.append(f'<text x="{MARGIN + 20}" y="{y0 + 26}" font-size="11.5" font-weight="700" '
+                 f'letter-spacing="1.1" fill="#94A3B8">{q(lane.get("title", lane["id"]).upper())}</text>')
 
         yy = y0 + 44
-        for fila, alto_fila in zip(p["filas"], p["alto_filas"]):
-            for i, st in enumerate(fila):
-                x = MARGEN + 20 + i * (ANCHO_CAJA + HUECO)
-                h = _alto_caja(st)
-                o.append(f'<rect x="{x}" y="{yy}" width="{ANCHO_CAJA}" height="{h:.0f}" rx="10" '
+        for row, alto_fila in zip(p["rows"], p["row_heights"]):
+            for i, st in enumerate(row):
+                x = MARGIN + 20 + i * (BOX_W + GAP)
+                h = _box_height(st)
+                o.append(f'<rect x="{x}" y="{yy}" width="{BOX_W}" height="{h:.0f}" rx="10" '
                          f'fill="#FFFFFF" stroke="{st.get("color", "#CBD5E1")}"/>')
                 o.append(f'<text x="{x + 16}" y="{yy + 26}" font-size="14" font-weight="700" '
-                         f'fill="#0F172A">{esc(st.get("title", ""))}</text>')
+                         f'fill="#0F172A">{q(st.get("title", ""))}</text>')
                 ty = yy + 46
-                for ln in _wrap(st.get("note", ""), ANCHO_CAJA - 32, "nota"):
+                for ln in _wrap(st.get("note", ""), BOX_W - 32, "nota"):
                     o.append(f'<text x="{x + 16}" y="{ty}" font-size="11.5" fill="#475569">'
-                             f'{esc(ln)}</text>')
+                             f'{q(ln)}</text>')
                     ty += 17
                 if st.get("measured"):
                     ty += 8
-                    for ln in _wrap(st["measured"], ANCHO_CAJA - 32, "medida"):
+                    for ln in _wrap(st["measured"], BOX_W - 32, "medida"):
                         o.append(f'<text x="{x + 16}" y="{ty}" font-size="11" font-weight="600" '
-                                 f'fill="#047857">{esc(ln)}</text>')
+                                 f'fill="#047857">{q(ln)}</text>')
                         ty += 15
                 # The arrow to the next stage: horizontal, INSIDE the row. Never diagonal —
                 # a long diagonal is what crossed a lane title in the figure this replaces.
                 # Un carril de ALTERNATIVAS no encadena: dos puertas por las que se puede
                 # entrar no son dos pasos. Una flecha entre ellas afirma un orden que no existe.
-                if i + 1 < len(fila) and not lane.get("alternatives"):
-                    xa = x + ANCHO_CAJA
-                    o.append(f'<path d="M {xa + 3} {yy + h / 2:.0f} H {xa + HUECO - 4}" '
+                if i + 1 < len(row) and not lane.get("alternatives"):
+                    xa = x + BOX_W
+                    o.append(f'<path d="M {xa + 3} {yy + h / 2:.0f} H {xa + GAP - 4}" '
                              f'stroke="#94A3B8" stroke-width="1.6" marker-end="url(#p)"/>')
-            yy += alto_fila + HUECO
+            yy += alto_fila + GAP
 
-        corte = cortes_por_carril.get(lane["id"])
-        if corte:
-            yc = y0 + alto + 12
-            o.append(f'<rect x="{MARGEN}" y="{yc}" width="{util}" height="52" rx="8" '
+        cut = cut_after.get(lane["id"])
+        if cut:
+            yc = y0 + height + 12
+            o.append(f'<rect x="{MARGIN}" y="{yc}" width="{usable}" height="52" rx="8" '
                      f'fill="#FFFBEB" stroke="#F59E0B" stroke-width="2" '
                      f'stroke-dasharray="9 6"/>')
-            txt = corte.get("text") or (
-                f'CUT — {corte.get("kind", "seam")} {corte.get("at") or corte.get("id", "")}: '
+            txt = cut.get("text") or (
+                f'CUT — {cut.get("kind", "seam")} {cut.get("at") or cut.get("id", "")}: '
                 f'the target is chosen BY NAME. No call crosses this line.')
-            o.append(f'<text x="{ANCHO / 2:.0f}" y="{yc + 31}" font-size="13" font-weight="700" '
-                     f'text-anchor="middle" fill="#B45309">{esc(txt)}</text>')
+            o.append(f'<text x="{WIDTH / 2:.0f}" y="{yc + 31}" font-size="13" font-weight="700" '
+                     f'text-anchor="middle" fill="#B45309">{q(txt)}</text>')
 
     yf = y + 24
-    o.append(f'<text x="{MARGEN}" y="{yf}" font-size="12.5" font-weight="700" fill="#0F172A">'
-             f'Lo que esta figura NO afirma</text>')
+    o.append(f'<text x="{MARGIN}" y="{yf}" font-size="12.5" font-weight="700" fill="#0F172A">'
+             f'What this figure does NOT claim</text>')
     for k, v in (caveats or {}).items():
         yf += 14
-        for ln in _wrap(f"· {k}: {v}", util - 10, "nota"):
-            o.append(f'<text x="{MARGEN}" y="{yf}" font-size="11" fill="#64748B">{esc(ln)}</text>')
+        for ln in _wrap(f"· {k}: {v}", usable - 10, "nota"):
+            o.append(f'<text x="{MARGIN}" y="{yf}" font-size="11" fill="#64748B">{q(ln)}</text>')
             yf += 16
 
     o.append('<defs><marker id="p" markerWidth="7" markerHeight="7" refX="6" refY="3.5" '

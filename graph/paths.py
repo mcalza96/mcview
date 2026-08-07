@@ -150,7 +150,6 @@ def bypasses(paths: list[list[str]], guards: set[str], project) -> list[dict]:
     into the report and the reader verifies it by reading three functions.
     """
     out = []
-    sinks = {c[-1] for c in paths}
     for c in paths:
         neighbors: set[str] = set()
         for n in c[:-1]:

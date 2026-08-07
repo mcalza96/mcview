@@ -178,6 +178,32 @@ mcview/selfcheck/check_determinism.py    # ~10 s · no baseline, nothing to conf
 Run it before reporting a difference as a finding. Variance is a symptom, never an explanation:
 if a number oscillates, something deterministic is hiding underneath it.
 
+### Two rules about measuring, both bought the hard way
+
+**Before believing a NULL result, prove the instrument can see a known effect.** A measurement
+of "this change does nothing" came back identical to two decimal places and was false — the
+patch had been applied to the wrong attribute, so nothing was being varied at all. It was caught
+by re-running with an absurd input (a single root) and seeing the same output: a null that
+cannot be true. The instrument lies before the system does.
+
+**Time ONE case before running N.** A sweep advertised at ~90 s took 21 minutes because it
+re-parsed the repository once per case. The per-case cost was already printed in an earlier
+output and nobody multiplied. One timed case is seconds; a sweep you regret is minutes of
+somebody's machine.
+
+### Two rules about measuring, both bought the hard way
+
+**Before believing a NULL result, prove the instrument can see a known effect.** A measurement
+of "this change does nothing" came back identical to two decimal places and was false — the
+patch had been applied to the wrong attribute, so nothing was being varied at all. It was caught
+by re-running with an absurd input (a single root) and seeing the same output: a null that
+cannot be true. The instrument lies before the system does.
+
+**Time ONE case before running N.** A sweep advertised at ~90 s took 21 minutes because it
+re-parsed the repository once per case. The per-case cost was already printed in an earlier
+output and nobody multiplied. One timed case is seconds; a sweep you regret is minutes of
+somebody's machine.
+
 ## What the tool does NOT see
 
 These are the blind spots that produce false "dead":

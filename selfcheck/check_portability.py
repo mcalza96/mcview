@@ -134,7 +134,7 @@ def _run(base: str, cwd: str, *args) -> tuple[int, str]:
 
 # Values the CLI accepts LITERALLY: they are not names from this project.
 _LITERALES = {
-    "DEAD_CANDIDATE", "ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "TEST_ONLY",
+    "DEAD_CANDIDATE", "ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "ALIVE_NOT_PRODUCT",
     "ALIVE_BY_NESTING", "ALIVE_PROVEN",         # --status
     "sequence", "map",                        # --mermaid
     "HEAD",                                     # --diff

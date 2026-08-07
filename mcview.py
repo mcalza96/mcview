@@ -41,13 +41,13 @@ import factory as _factory        # noqa: E402
 
 import orient as _orient  # noqa: E402
 
-ORDEN = ["ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "TEST_ONLY",
+ORDEN = ["ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "ALIVE_NOT_PRODUCT",
          "ALIVE_BY_NESTING", "DEAD_CANDIDATE"]
 
 GLOSA = {
     "ALIVE_PRODUCT": "reachable from a real root, by an unambiguous name",
     "ALIVE_PRODUCT_WEAK": "reachable ONLY via an ambiguous name (homonyms)",
-    "TEST_ONLY": "alive purely because a test or a script touches it",
+    "ALIVE_NOT_PRODUCT": "reachable, but never from a product root",
     "ALIVE_BY_NESTING": "alive only by being nested inside something alive",
     "DEAD_CANDIDATE": "no references at all — a hypothesis, NOT a deletion order",
 }

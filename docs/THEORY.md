@@ -179,7 +179,7 @@ count and delete:
 | stands for "entropy" | what it is |
 |---|---|
 | `ALIVE_PRODUCT_WEAK` | alive only through a homonym |
-| `TEST_ONLY` | alive only because its own test touches it |
+| `ALIVE_NOT_PRODUCT` | reachable, but never from a product root |
 | cold symbols | referenced, mass ~0 |
 | Type-1/2/3 duplication | the same shape repeated |
 

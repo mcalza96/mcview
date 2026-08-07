@@ -17,7 +17,7 @@ An intent classifier ran on every turn and returned four verdicts: `operacion`, 
 **They were computed on every turn of the system and changed no decision.**
 
 No existing view says so. They are not dead (there is a `.get()`), not cold (the turn goes
-through there), not `TEST_ONLY`. The only question that gives them away is *"who reads them,
+through there), not `ALIVE_NOT_PRODUCT`. The only question that gives them away is *"who reads them,
 and what for?"* — and that requires telling a reader that DECIDES from one that only WATCHES
 or RELAYS.
 

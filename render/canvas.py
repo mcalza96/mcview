@@ -22,7 +22,7 @@ COLORES = {
     "ALIVE_PROVEN": "#22c55e",
     "ALIVE_PRODUCT": "#38bdf8",
     "ALIVE_PRODUCT_WEAK": "#a78bfa",
-    "TEST_ONLY": "#facc15",
+    "ALIVE_NOT_PRODUCT": "#facc15",
     "ALIVE_BY_NESTING": "#fb923c",
     "DEAD_CANDIDATE": "#f43f5e",
     "": "#64748b",

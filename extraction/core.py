@@ -530,7 +530,7 @@ class Project:
         return {
             "ALIVE_PRODUCT": producto & fuerte,
             "ALIVE_PRODUCT_WEAK": producto - fuerte,
-            "TEST_ONLY": alcanzable - producto,
+            "ALIVE_NOT_PRODUCT": alcanzable - producto,
             "ALIVE_BY_NESTING": alcanzable - no_containment,
             "DEAD_CANDIDATE": muerto,
         }

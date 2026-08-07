@@ -276,9 +276,16 @@ class TSProject(Project):
         # same as on the Python side (identical `module_refs` semantics).
         if is_root_dir or is_entry:
             self.reasons["root_module"] += len(self.by_file[rel])
+            # `product_dirs` is read HERE and not only on the Python side. It used to be
+            # ignored on this path, so a directory declared in `dirs` produced roots that
+            # were never product, and everything they reached landed in the non-product
+            # level. Measured on a Next.js project with zero tests: 20 symbols —including
+            # `withAuth` and `Database`— reported as reachable-only-off-product. The knob
+            # was written by `--init`, documented, and read by nobody.
+            es_producto = is_entry or self.cfg.is_product_dir(rel)
             for s in self.by_file[rel]:
                 self.roots.add(s.id)
-                if is_entry:
+                if es_producto:
                     self.product_roots.add(s.id)
 
     # -- fingerprint estructural ------------------------------------------------

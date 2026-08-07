@@ -180,13 +180,13 @@ a{color:var(--accent)}
 
 _COLOR_NIVEL = {
     "ALIVE_PROVEN": "var(--accent)", "ALIVE_PRODUCT": "var(--accent)",
-    "ALIVE_PRODUCT_WEAK": "var(--warn)", "TEST_ONLY": "var(--warn)",
+    "ALIVE_PRODUCT_WEAK": "var(--warn)", "ALIVE_NOT_PRODUCT": "var(--warn)",
     "ALIVE_BY_NESTING": "var(--muted)", "DEAD_CANDIDATE": "var(--dead)",
 }
 _GLOSA_NIVEL = {
     "ALIVE_PRODUCT": "reachable from a real root, unambiguous name",
     "ALIVE_PRODUCT_WEAK": "only via an ambiguous name — this is where entropy lives",
-    "TEST_ONLY": "alive purely because a test or a script touches it",
+    "ALIVE_NOT_PRODUCT": "reachable, but never from a product root",
     "ALIVE_BY_NESTING": "alive only by being nested inside something alive",
     "DEAD_CANDIDATE": "no references at all — a hypothesis, NOT a deletion order",
 }
@@ -236,7 +236,7 @@ def render(r: dict, sequence: str, map_html: str, comando: str) -> str:
         f'<div class="tira"><div class="k">{_e(k)}</div><div class="v">{_e(v)}</div>'
         f'<div class="n">{_e(n)}</div></div>' for k, v, n in tiras)
 
-    call_order = ["ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "TEST_ONLY", "ALIVE_BY_NESTING",
+    call_order = ["ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "ALIVE_NOT_PRODUCT", "ALIVE_BY_NESTING",
              "DEAD_CANDIDATE"]
     barra = "".join(
         f'<span style="width:{100*r["temperatura"].get(k,0)/total_sym:.2f}%;'
@@ -251,7 +251,7 @@ def render(r: dict, sequence: str, map_html: str, comando: str) -> str:
     parts.append(f'''<section>
       <h2>Temperatura</h2>
       <p class="sub">The grades of liveness evidence. <code>ALIVE_PRODUCT_WEAK</code> and
-      <code>TEST_ONLY</code> are where entropy piles up: code nobody deletes because the graph
+      <code>ALIVE_NOT_PRODUCT</code> are where entropy piles up: code nobody deletes because the graph
       says it is used, when what holds it up is a homonym or its own test.</p>
       <div class="barra">{barra}</div><div class="leyenda">{leyenda}</div>
       <p class="sub" style="margin-top:1rem">{r["frios"]} <b>cold</b> symbols (mass ~0):

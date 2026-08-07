@@ -271,6 +271,7 @@ def _detect_ts(root: str, out: dict) -> None:
             if f in ("route.ts", "route.tsx", "page.tsx", "layout.tsx", "middleware.ts"):
                 conv.append(os.path.relpath(os.path.join(dirpath, f), root))
     if conv:
+        out["convention_roots"] = conv
         out["notes"].append(
             f"{len(conv)} files loaded by framework convention (route/page/layout) — those "
             f"are the roots, and `ts.py` already declares them: nothing to write here")
@@ -348,6 +349,25 @@ def render(root: str, findings: dict) -> str:
     for t in findings["test_dirs"]:
         if t + "/" not in dirs:
             dirs.append(t + "/")          # tests are roots, but NOT product
+
+    if findings.get("convention_roots"):
+        # A filesystem-routed framework HAS declared its roots — they are the file names, and
+        # `ts.py` walks from them without any help from this file. Emitting the "nothing was
+        # found" panic here was false, and the config it produced was worse than false: the
+        # fallback declared the source directory, whose files become roots but not product,
+        # so everything reachable came out off-product. Both sides of that were fixed; what
+        # `dirs` adds here is the code the framework does NOT load by name.
+        wrote_real_root = True
+        L += [
+            "#",
+            f"# {len(findings['convention_roots'])} files are loaded BY NAME by the framework",
+            "#   (page/layout/route/middleware). They are roots and they are product, and they",
+            "#   are found by convention — nothing to declare. `dirs` below is the rest of the",
+            "#   source: it is a root so that what only it touches is not read as dead, and it",
+            "#   is product so it is not read as tests.",
+        ]
+        dirs = [findings["src_root"] + "/"] if findings["src_root"] != "." else ["./"]
+        product = list(dirs)
 
     if not wrote_real_root:
         L += [

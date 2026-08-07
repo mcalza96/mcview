@@ -297,10 +297,10 @@ TOOLS = [
 
     _t("mcview_status",
        "Symbols at one grade of liveness. 'Alive' is not a boolean: ALIVE_PRODUCT_WEAK (alive "
-       "only through an ambiguous name) and TEST_ONLY (alive only because a test touches it) "
+       "only through an ambiguous name) and ALIVE_NOT_PRODUCT (reachable, but never from a product root — a test, a script, or a directory declared in `dirs` and left out of `product_dirs`) "
        "are where entropy lives. DEAD_CANDIDATE is a hypothesis, never a deletion order.",
        {"level": {"type": "string",
-                  "enum": ["ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "TEST_ONLY",
+                  "enum": ["ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "ALIVE_NOT_PRODUCT",
                            "ALIVE_BY_NESTING", "DEAD_CANDIDATE"],
                   "description": "Omit for the census summary of all levels."},
         "limit": _LIMIT, "project": _PROJECT, "projectPath": _PATH},

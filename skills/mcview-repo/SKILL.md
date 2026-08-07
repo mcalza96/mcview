@@ -84,21 +84,21 @@ touched:
 | `ALIVE_PROVEN` | it ran at runtime — never touch |
 | `ALIVE_PRODUCT` | reachable from a real root, unambiguous name |
 | `ALIVE_PRODUCT_WEAK` | **only** via an ambiguous name (homonyms) |
-| `TEST_ONLY` | alive purely because a test or a script touches it |
+| `ALIVE_NOT_PRODUCT` | reachable, but never from a product root |
 | `ALIVE_BY_NESTING` | alive only by being nested inside something alive |
 | `DEAD_CANDIDATE` | no references at all |
 
-`ALIVE_PRODUCT_WEAK` and `TEST_ONLY` are where the entropy lives: code nobody deletes
+`ALIVE_PRODUCT_WEAK` and `ALIVE_NOT_PRODUCT` are where the entropy lives: code nobody deletes
 because the graph says it is used, when what holds it up is a homonym or its own test. When
 reporting, name them — do not hide them behind the total.
 
-**But `TEST_ONLY` is not automatically fat: look at what that test proves.** Measured case:
+**But `ALIVE_NOT_PRODUCT` is not automatically fat: look at what that test proves.** Measured case:
 a 22-line component marked `@deprecated`, alive only through its test — read mechanically,
 fat. But the test was not testing the shim: it was testing **the real component through it**,
 with 13 cases, in a frontend where almost nothing has tests. Deleting both cost real
 coverage; the correct output was to delete the shim and **re-point the test**.
 
-**And a low `TEST_ONLY` is not good news either.** In this monorepo the backend is above 50%
+**And a low `ALIVE_NOT_PRODUCT` is not good news either.** In this monorepo the backend is above 50%
 and the frontend near 2% — that is not the frontend having less fat, it is the frontend
 having almost no tests. The same metric says opposite things depending on how much the
 project is tested.
@@ -296,7 +296,7 @@ the opposite.
 ### 7. The lock
 
 **If no LIVE status moved, the verdict was correct.** When deleting N dead symbols,
-`DEAD_CANDIDATE` drops by N and `ALIVE_PRODUCT` / `TEST_ONLY` / `WEAK` stay **identical**. If
+`DEAD_CANDIDATE` drops by N and `ALIVE_PRODUCT` / `ALIVE_NOT_PRODUCT` / `WEAK` stay **identical**. If
 any of them moves, something alive depended on what you removed — revert and review.
 
 **And validate the verifier you did NOT write yourself.** A typecheck or a test run can be a
@@ -766,7 +766,7 @@ There are two classes, and only one can drift:
 - **Dated anecdotes** — "3 pre-existing errors looked like regressions", "of 56 red tests, 18 were
   guards", "1088 → 179 → 45". They happened. They do not change with a commit, and they are what
   makes the lesson credible. **They get quoted.**
-- **Current state of the repo** — how many symbols there are, what percentage is `TEST_ONLY`, what
+- **Current state of the repo** — how many symbols there are, what percentage is `ALIVE_NOT_PRODUCT`, what
   the optimal k is, which is the largest file. They change with every merge. **They are not quoted
   from memory: they are recomputed**, which is why they are described here by their shape ("above
   50%", "the largest file") and not by their value.

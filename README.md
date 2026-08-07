@@ -16,7 +16,7 @@ cohesion 0.61
 ── TEMPERATURE ────────────────────────────────────────────
   ALIVE_PRODUCT            12
   ALIVE_PRODUCT_WEAK        2
-  TEST_ONLY                 1
+  ALIVE_NOT_PRODUCT                 1
   DEAD_CANDIDATE            1
   cold (mass ~0)            2   referenced, but the system does not go through them
 ```
@@ -196,11 +196,11 @@ Collapsing it overestimated liveness by a factor of eight on the first project m
 | `ALIVE_PROVEN` | ran at runtime |
 | `ALIVE_PRODUCT` | reachable from a real root, unambiguous name |
 | `ALIVE_PRODUCT_WEAK` | reachable **only** through an ambiguous name (homonyms) |
-| `TEST_ONLY` | alive only because a test or script touches it |
+| `ALIVE_NOT_PRODUCT` | reachable, but never from a product root — a test, a script, or a `dirs` entry left out of `product_dirs` |
 | `ALIVE_BY_NESTING` | alive only by being nested inside something alive |
 | `DEAD_CANDIDATE` | no references at all |
 
-`ALIVE_PRODUCT_WEAK` and `TEST_ONLY` are where entropy accumulates: code nobody deletes because
+`ALIVE_PRODUCT_WEAK` and `ALIVE_NOT_PRODUCT` are where entropy accumulates: code nobody deletes because
 the graph says it is used, when what holds it up is a homonym or its own test.
 
 ### What each number does not claim

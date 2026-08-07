@@ -98,7 +98,7 @@ comes from the complete graph; `--hierarchy` measures it without the top 1% of h
 a different number. **They are not interchangeable** — if you report it, say where it came
 from.
 
-**temperature** — the grades of liveness. `ALIVE_PRODUCT_WEAK` and `TEST_ONLY` are where the
+**temperature** — the grades of liveness. `ALIVE_PRODUCT_WEAK` and `ALIVE_NOT_PRODUCT` are where the
 entropy lives: code nobody deletes because the graph says it is used, when what holds it up
 is a homonym or its own test. Name them; do not hide them in the total.
 

@@ -43,6 +43,19 @@ class _WeaveConfig:
         self.name = name
         self.modules = {f"{e}{SEP}{m}": v for e, c in cfgs.items()
                         for m, v in c.modules.items()}
+        # The doors, composed the same way as the lines of work — and they were NOT, which is
+        # a difference nobody declared. A project could name its surfaces in its own `.toml`,
+        # and the moment the question crossed repositories the weave dropped them: `--to` only
+        # works in workspace mode, so exactly the cross-repo flows —the ones where "where does
+        # a user come in" is hardest to guess— ran with no doors at all and started wherever
+        # mass pointed. Found by an agent that traced a Telegram turn and had its entry point
+        # anchored, by mass, on the attachment branch.
+        #
+        # The TARGETS carry the prefix too: in the weave a path is `project▸path`, and a door
+        # pointing at a bare path resolves to nothing.
+        self.surfaces = {f"{e}{SEP}{s}": tuple(f"{e}{SEP}{t}" for t in targets)
+                         for e, c in cfgs.items()
+                         for s, targets in (getattr(c, "surfaces", {}) or {}).items()}
         self.root = ""
 
     def _split(self, rel: str) -> tuple[object | None, str]:

@@ -56,6 +56,27 @@ def resolve(project, target: str) -> dict:
     obj = target.strip().rstrip("/")
     plegado = obj.casefold()
 
+    # 0 — DECLARED SURFACE, and it goes first because it is the most specific thing anybody
+    # said about this project: a module is where code lives, a surface is where a USER comes
+    # in. Until this existed, declaring `[surfaces]` changed nothing about where a flow began
+    # — the walk still started at the heaviest symbol, and the warning that told you to name
+    # your doors was promising something the tool did not do. Measured: asking for a surface
+    # by name matched a module by substring instead and anchored the narrative 58 symbols away
+    # from any door.
+    for name, targets in (getattr(cfg, "surfaces", {}) or {}).items():
+        if name.casefold() != plegado:
+            continue
+        archivos: set[str] = set()
+        for t in targets:
+            d = resolve(project, t)
+            if "error" not in d:
+                archivos |= set(d.get("files", ()))
+        if archivos:
+            # The SAME shape the other resolvers return —`kind`, `name`, `files`— and not one
+            # of my own invention: the consumers read `name`, and a fourth shape crashed
+            # `--orient` with a KeyError the moment a surface was asked for by name.
+            return {"kind": "surface", "name": name, "files": sorted(archivos)}
+
     # 1 — declared module (exact, then by prefix)
     for name in cfg.modules:
         if name.casefold() == plegado:

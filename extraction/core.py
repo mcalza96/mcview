@@ -139,19 +139,49 @@ class _Anonymizer(ast.NodeTransformer):
         return n
 
 
-def _read_outside(fn, name: str, comp) -> bool:
-    """Is `name` read anywhere in `fn` outside the line span of `comp`?
+def _bound_only_inside(fn) -> set[str]:
+    """Names a comprehension or a lambda binds, whose EVERY read lies inside one of them.
 
-    The cheap way to tell a throwaway comprehension variable from a name that also refers to
-    something real in the same function. Line spans, not scopes: a comprehension is a single
-    expression, so its span is exact and there is nothing to model.
+    The cheap way to tell a throwaway loop variable from a name that also refers to something
+    real in the same function. Line spans, not scopes: a comprehension is a single expression,
+    so its span is exact and there is nothing to model.
+
+    ALL the binders of a name at once, and that is the whole point. The first version asked
+    "is it read outside THIS comprehension?", which is the same question asked once per
+    comprehension — and a function with several of them defeats it, because the reads inside
+    comprehension #2 are outside comprehension #1. Measured in this very file: `_mark_branches`
+    has five dict comprehensions over `x`, so none of them bound it and every `x` resolved to a
+    one-letter function in another layer, with the STRONGEST evidence the tool can give. The
+    diagram showed `extraction` depending on `render`, which is how it was found.
+
+    A name with no reads at all comes out bound: `all()` over nothing is true, and an unused
+    target is exactly the throwaway case.
     """
-    lo, hi = comp.lineno, getattr(comp, "end_lineno", comp.lineno)
+    spans: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    for n in ast.walk(fn):
+        if not isinstance(n, (ast.ListComp, ast.SetComp, ast.DictComp,
+                              ast.GeneratorExp, ast.Lambda)):
+            continue                  # not every AST node carries a line (`arguments` does not)
+        span = (n.lineno, getattr(n, "end_lineno", None) or n.lineno)
+        if isinstance(n, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
+            for g in n.generators:
+                for t in ast.walk(g.target):
+                    if isinstance(t, ast.Name):
+                        spans[t.id].append(span)
+        elif isinstance(n, ast.Lambda):
+            a = n.args
+            for x in (*a.posonlyargs, *a.args, *a.kwonlyargs, a.vararg, a.kwarg):
+                if x:
+                    spans[x.arg].append(span)
+    if not spans:
+        return set()
+
+    reads: dict[str, list[int]] = defaultdict(list)
     for x in ast.walk(fn):
-        if (isinstance(x, ast.Name) and x.id == name and isinstance(x.ctx, ast.Load)
-                and not (lo <= x.lineno <= hi)):
-            return True
-    return False
+        if isinstance(x, ast.Name) and isinstance(x.ctx, ast.Load) and x.id in spans:
+            reads[x.id].append(x.lineno)
+    return {name for name, sp in spans.items()
+            if all(any(lo <= r <= hi for lo, hi in sp) for r in reads.get(name, ()))}
 
 
 def _own_bound(node) -> set[str]:
@@ -173,6 +203,9 @@ def _own_bound(node) -> set[str]:
     """
     bound: set[str] = set()
     declarados_afuera: set[str] = set()
+    # Computed ONCE for the whole function: the rule is about all the binders of a name
+    # together, so asking it per-comprehension is what let the multi-comprehension case slip.
+    solo_adentro = _bound_only_inside(node)
     a = node.args
     for x in (*a.posonlyargs, *a.args, *a.kwonlyargs, a.vararg, a.kwarg):
         if x:
@@ -188,12 +221,12 @@ def _own_bound(node) -> set[str]:
             # comprehension case below and found the same way: `sorted(out, key=lambda x:
             # -x["fraccion"])` left `x` unbound, so every read of it resolved to whatever
             # one-letter symbol the project happened to define. Same conservative rule: bind
-            # only when the name is read nowhere else in the function.
+            # only when every read of the name is inside a binder of that same name.
             for a in n.args.args + n.args.posonlyargs + n.args.kwonlyargs:
-                if not _read_outside(node, a.arg, n):
+                if a.arg in solo_adentro:
                     bound.add(a.arg)
             for extra in (n.args.vararg, n.args.kwarg):
-                if extra and not _read_outside(node, extra.arg, n):
+                if extra and extra.arg in solo_adentro:
                     bound.add(extra.arg)
             stack.append(n.body)
             stack.extend(n.args.defaults)
@@ -214,14 +247,15 @@ def _own_bound(node) -> set[str]:
             # defined elsewhere in the project. Measured: 3 fabricated strong edges from one
             # comprehension variable.
             #
-            # So the target is bound only when it is read NOWHERE ELSE in this function. That
+            # So the target is bound only when EVERY read of it falls inside a binder of the
+            # same name. That
             # covers the real case (a throwaway loop variable) and leaves the ambiguous one
             # alone, which keeps the bias pointing at the false negative. A blanket binding was
             # tried first and `check_reach` rejected it: its fixture reads the name after the
             # comprehension, and that read is a legitimate reference.
             for g in n.generators:
                 for t in ast.walk(g.target):
-                    if isinstance(t, ast.Name) and not _read_outside(node, t.id, n):
+                    if isinstance(t, ast.Name) and t.id in solo_adentro:
                         bound.add(t.id)
             stack.extend(g.iter for g in n.generators)
             stack.extend(c for g in n.generators for c in g.ifs)

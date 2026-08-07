@@ -240,6 +240,75 @@ get in" has no answer.
 
 ## Reading the output
 
+### Two shapes, both of them text
+
+Everything below is mcview measuring **itself**, which is also how the layer inversion three
+paragraphs down got found.
+
+`--map` gives the usage mass, which answers *where does the system actually go*:
+
+```
+  HEAT MAP — mcview
+  expected usage mass, derived from structure (without executing anything)
+
+  2 files concentrate 50% of usage · 5 hold 80%   (of 38)
+
+  49.71% ██████████████████████████████████████████ mcp_server.py
+  12.34% ██████████                                 views/seams.py
+   9.33% ███████                                    mcview.py
+   5.51% ████                                       gate.py
+   4.47% ███                                        extraction/factory.py
+   3.59% ███                                        extraction/core.py
+   0.43% █                                          views/heatmap.py
+   0.17% █                                          views/atlas.py
+```
+
+Read it against the caveat, not around it: this is structural centrality, and it is *measured*
+not to predict execution (AUC 0.506). `mcp_server.py` holding half the mass says every tool
+call goes through one dispatch, not that it is the most important file.
+
+`--orient <target> --flow --mermaid map` gives the neighbourhood — who reaches a target, what
+it reaches, and what every path crosses first:
+
+```mermaid
+flowchart TB
+  subgraph USA["who uses it"]
+    U0["extraction<br/><i>8 refs</i>"]
+    U1["views<br/><i>2 refs</i>"]
+    U2["graph<br/><i>2 refs</i>"]
+  end
+  subgraph OBJ["extraction/core.py"]
+    P0["extraction/<br/><i>1 file</i>"]
+  end
+  subgraph DEP["what it depends on"]
+    D0["views<br/><i>2 refs</i>"]
+    D1["extraction<br/><i>0 refs</i>"]
+  end
+  U0 --> OBJ
+  U1 --> OBJ
+  U2 --> OBJ
+  OBJ --> D0
+  OBJ --> D1
+  GUARD["crosses first:<br/>query 60% · compare 60% · make_project 60%"]
+  OBJ -.-> GUARD
+  style GUARD stroke-dasharray:4 4
+  style OBJ stroke-width:3px
+```
+
+**That diagram is the reason it is worth drawing.** An earlier run of it put `render` in the
+"depends on" box — the analysis core depending on the presentation layer, which cannot be
+true. It was a fabricated edge: `_mark_branches` has five dict comprehensions over `x`, the
+scope rule asked "is `x` read outside THIS comprehension?" once per comprehension, and the
+reads inside comprehension #2 count as outside comprehension #1. So none of them bound it,
+and every `x` resolved to a one-letter function in `render/journey.py` carrying the strongest
+evidence the tool can give. The rule now asks the question about ALL the binders of a name at
+once. A diagram is worth having when it makes a wrong answer look wrong.
+
+There is a third view, `--atlas`, and it is deliberately **not** shown here. It is an
+interactive 2D canvas, so putting it in this file would mean a screenshot — and the position
+of this project is that its output is text on purpose, because an image cannot be diffed and
+goes stale without saying so. Run `mcview --atlas` and open the file it writes.
+
 ### "Alive" is not a boolean
 
 Collapsing it overestimated liveness by a factor of eight on the first project measured.

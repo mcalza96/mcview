@@ -54,6 +54,71 @@ mcview/mcview.py --atlas --from <surface> > map.html
 Skipping step 1 is the typical mistake: with no destination, `--sequence` prunes by mass,
 and the step that explains how the result is assembled usually weighs very little.
 
+### Tracing A → B in order to CHANGE one of the branches
+
+Understanding a flow and being safe to modify it are different jobs, and the second needs four
+checks the first does not. Each step below exists to prevent one specific way of being
+confidently wrong; run them in order and read what the tool tells you rather than what you
+expected.
+
+**Check where the walk begins.** If the output warns that no `[surfaces]` are declared, the
+origin was chosen by MASS — an inference, not a door. Everything downstream is conditioned on
+it. Either declare the entry points or say in your report that the starting point was inferred.
+
+**Ask for the SET before the narrative.**
+
+```bash
+mcview --sequence <A> --all
+```
+
+It returns every edge the flow CAN traverse and, next to it, what fraction the readable
+narrative shows. That fraction is routinely small — the narrative descends the heaviest call at
+each level on purpose, so it stays readable. Read the number it gives you for THIS repo before
+believing you have seen the flow.
+
+Read both columns. An edge whose `unambiguous` count is 0 resolved only through a name several
+symbols share; it is not a connection. Whether that is rare or pervasive depends entirely on the
+language and the naming conventions of the project in front of you — check, do not assume.
+
+**Then the route to B**, which is the only form that does not prune:
+
+```bash
+mcview --sequence <A> --to <B>
+```
+
+**Ask where it really decides, and be ready for zero.**
+
+```bash
+mcview --sequence <A> --to <B> --decisions
+```
+
+It separates PROVEN forks — calls in different branches of the same conditional — from
+candidates ranked by reference split. A route can legitimately come back with **no proven fork
+at all**: the AST cannot tell a call inside an `if` from the one on the next line. If that
+happens, the branch you want to change is not chosen by the code — it is chosen by the data, by
+configuration, or by a model. Say so; do not present the reference split as a probability.
+
+**Look for a CUT in the middle.** Where the project declares a dispatch or a seam, the target is
+picked BY NAME and no edge crosses. `--blueprint` lists them. A narrative that bridges a cut
+invents a call that does not happen.
+
+**Read the branch's code — with the index, not with this.** This tool told you WHICH code to
+read. Reading it is another tool's job.
+
+**Before touching it, two cheap questions:**
+
+```bash
+mcview --orient <the branch>     # who uses it, what a change reaches
+mcview --exists <new file>       # does this already exist under another name?
+```
+
+**And if the process runs somewhere, turn the probe on.** `--runtime` marks the steps seen
+executing, and it is the only thing that turns "can pass through here" into "did". It confirms
+and never rules out — an unmarked step may sit behind a condition, or run in a PROCESS WHERE
+NOBODY STARTED THE PROBE, which makes half a flow invisible by construction and looks exactly
+like code that never ran. Check which processes are instrumented before reading absence as
+evidence.
+
 ## Four things the output asserts, and one it does not
 
 **`--route` does not enumerate paths.** They are exponential, and a list of the first

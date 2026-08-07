@@ -149,6 +149,32 @@ The two answer different questions, and the split is clean:
 
 Run both. Ask the index *where things are*; ask mcview *whether the shape holds*.
 
+### Why the pairing, and what would end it
+
+**This is a scope decision, not a dependency.** mcview has none, runs alone, and the one
+self-check that reads an index skips loudly when there is not one. Nothing here degrades if you
+never install another tool.
+
+What it does not do is retrieval, and that is on purpose. Answering *"show me this symbol's
+source"* well means a persistent index, a file watcher and a parser per language — three things
+whose cost is paid once by whoever specialises in them, and paid forever by anyone who bolts
+them onto something else. Today that half is better bought than built, so the honest advice is
+to run an index alongside and ask each for what it measures.
+
+The half that is genuinely mine is the judgment: liveness with grades of evidence, structural
+duplication, usage mass, the seams between repositories, the pre-write gate. That is where the
+work goes.
+
+**What would change the calculus.** If the extraction layer has to grow — more languages, or a
+persistent graph so a large repository does not pay the parse on every call — that is a core of
+its own and it will be written. It is not written yet because the measurement does not ask for
+it: building the graph costs 3.3 s on a 6k-symbol repository and every view over it runs in
+milliseconds, so there is nothing to cache away. And the blocker for more languages is not the
+parser: it is that each framework declares its entry points differently, and a parser without
+those conventions produces a config that runs, reports numbers, and measures nothing.
+
+So: paired today, on evidence. Not paired on principle, and not paired forever.
+
 **Measured on the same 6.2k-symbol repository, and this is why they are not interchangeable.**
 Their inventories agree to within 0.3% — 6,168 symbols vs 6,186 — which is strong mutual
 validation of both extractors. Their reference graphs do not: 62% of symbols have no incoming

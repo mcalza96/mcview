@@ -178,3 +178,16 @@ depend on anything from your machine:
 ```bash
 mcview/selfcheck/check_portability.py
 ```
+
+And if the repository already has a code index (`.codegraph/codegraph.db` or equivalent), a
+second extractor can confirm the census independently — it skips loudly when there is none,
+and it is never a dependency:
+
+```bash
+mcview/selfcheck/check_external_index.py --record   # pin this repo's divergence
+mcview/selfcheck/check_external_index.py            # verify it has not grown
+```
+
+Read the divergence before pinning it. On Python the two agree to within 0.2%; a number far
+from that is either a real parser gap or a scoping mistake in the comparison, and pinning it
+unread turns the lock into a rubber stamp.

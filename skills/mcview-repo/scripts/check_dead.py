@@ -69,7 +69,7 @@ def main():
     ap.add_argument("--root", required=True)
     ap.add_argument("--symbols", help="comma-separated list")
     ap.add_argument("--json-stdin", action="store_true",
-                    help="read_rows la output de `mcview.py --status ... --json`")
+                    help="read_rows the output of `mcview.py --status ... --json`")
     ap.add_argument("--git", action="store_true",
                     help="also date each symbol with git log -S (slower)")
     ap.add_argument("--json", action="store_true")

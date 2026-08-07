@@ -248,7 +248,7 @@ def _decorator_name(d) -> str:
 
 
 class Project:
-    """Un project analizado. Construir es barato: sub-segundo en ~600 files."""
+    """One analysed project. Building is cheap: sub-second on ~600 files."""
 
     def __init__(self, cfg):
         self.cfg = cfg
@@ -537,7 +537,7 @@ class Project:
 
     # -- structural fingerprint (for duplicates) --------------------------------
     def _fingerprint(self, body: list, min_statements: int) -> str | None:
-        """Lista de sentencias → forma anonimizada. La unidad no importa: sirve
+        """A list of statements → an anonymised shape. The unit does not matter: it works
         the same for a function's body as for an `except`'s."""
         body = [x for x in body
                   if not (isinstance(x, ast.Expr) and isinstance(x.value, ast.Constant))]

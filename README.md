@@ -423,11 +423,30 @@ invisible.
 | **The skills travel inside** | `orient-session`, `mcview-repo`, `mcview-process`, `mcview-install`. Shipping the engine without the manual is what lets somebody read a ranking as a conclusion. |
 | **Expensive views are not MCP tools** | Full duplicate analysis, `--k`, `--hierarchy`, `--islands` and `--views` run in minutes on a large repo. A call that blocks for minutes is one nobody makes twice. |
 
-Six self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
+Seven self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
 config key drifting from its reader — the view returns empty, which reads as a finding — and
 encapsulation eroding until the directory no longer copies cleanly. The latter runs the CLI as a
 subprocess from a temporary directory, because importing the modules proves nothing when
 `sys.path` and `cwd` are already contaminated.
+
+The seventh asks somebody else. Every other lock checks mcview against a fixture mcview wrote,
+and a parser bug consistent with itself passes all of them; `check_external_index.py` compares
+the census against an independent extractor — a code index's SQLite, when one is present — and
+skips loudly when it is not. It is never a runtime dependency.
+
+The agreement is the interesting part. Across four Python projects, up to 38,769 symbols, the
+two inventories are **0.0–0.2% apart**: two implementations, two languages, the same census.
+On TypeScript they sit 33.8% apart, and that decomposes into vocabulary (a React component
+written `const Panel = memo(...)` is a symbol here and a constant there) and nesting — mcview
+indexes a function-valued `const` declared *inside* another function, which an index built for
+retrieval does not. Both explained before being pinned, because a baseline nobody explained
+just freezes a bug.
+
+What it catches was seeded, not assumed: breaking attribute resolution takes "resolved calls
+mcview lacks" from 117 to 2,997. What it does not catch is equally measured — a fabricated
+edge. That check was built and discarded when reintroducing a real precision bug moved it by
+zero, twice. An index that resolves ~38% of references cannot be the precision oracle of one
+that resolves all of them; it is missing the case, not the criterion.
 
 ---
 

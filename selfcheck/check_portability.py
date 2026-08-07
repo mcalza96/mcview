@@ -255,7 +255,7 @@ def main() -> int:
     for x in failures:
         print(f"  ✗ {x}")
     if not failures:
-        print("  ✓ portabilidad: copiada a un directorio limpio, corre census, brief, "
+        print("  ✓ portability: copied into a clean directory, it runs census, brief, "
               "flow, diagram and page")
     return 1 if failures else 0
 

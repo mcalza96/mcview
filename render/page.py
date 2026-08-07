@@ -270,7 +270,7 @@ def render(r: dict, sequence: str, map_html: str, comando: str) -> str:
 
     if map_html:
         parts.append(f'''<section>
-          <h2>El vecindario</h2>
+          <h2>The neighbourhood</h2>
           <p class="sub">One altitude up: which lines of work use it and which it depends on.
           No tests, no scripts — they are consumers of the system, not part of its
           structure.</p>
@@ -455,7 +455,7 @@ def render_bridges(bridges: list[dict], catalogs: dict, comando: str) -> str:
                   f'{_e(p["from"])} → <b>{_e(p["to"])}</b>', str(p["usos"]))
                  for p in exact[:40]]
         parts.append(f'''<section>
-          <h2>Llamadas</h2>
+          <h2>Calls</h2>
           <p class="sub">What holds each one up is that both sides write the same identifier, not
           something similar — the same criterion as the unambiguous edges
           inside de un project.</p>

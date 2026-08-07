@@ -129,12 +129,12 @@ def print_rows(findings: list[dict], project_name: str, declarado: bool):
     if not declarado:
         print(f"\n  {project_name}: no `[consumption]` in the .toml — nothing to separate.\n")
         print("  Declare which modules ONLY WATCH (observability) and which ONLY RELAY")
-        print("  (transport) reaches; el rest se computa.\n")
+        print("  (transport) reaches; the rest is computed.\n")
         print("      [consumption]")
         print('      observability = ["pkg/observability/", "telemetry.py"]')
         print('      transport     = ["routers/mcp_server.py"]\n')
         return
-    print(f"\n  SE COMPUTA Y NO GOBIERNA — {project_name}")
+    print(f"\n  IT IS COMPUTED AND DOES NOT GOVERN — {project_name}")
     print("  symbols whose external readers ONLY watch or relay\n")
     if not findings:
         print("    none. Everything computed is read by some decision path.\n")

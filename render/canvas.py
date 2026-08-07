@@ -28,7 +28,7 @@ COLORES = {
     "": "#64748b",
 }
 
-_PAGINA = """<meta charset="utf-8"><title>atlas — __TITULO__</title>
+_PAGINA = """<meta charset="utf-8"><title>atlas — __TITLE__</title>
 <style>
 :root{--bg:#f8fafc;--fg:#0f172a;--sub:#64748b;--panel:#fff;--borde:#e2e8f0;--edge:#94a3b8}
 @media(prefers-color-scheme:dark){:root{--bg:#0b1120;--fg:#e2e8f0;--sub:#94a3b8;--panel:#111c33;--borde:#1e293b;--edge:#475569}}
@@ -328,7 +328,7 @@ def page(modelo: dict) -> str:
     # `%` (`50%`, `toFixed(2)+'%'`) and the formatting would take them as directives.
     datos = json.dumps(modelo, separators=(",", ":"), ensure_ascii=False)
     return (_PAGINA
-            .replace("__TITULO__", html.escape(modelo["project"]))
+            .replace("__TITLE__", html.escape(modelo["project"]))
             .replace("__COLORES__", json.dumps(COLORES))
             # `</script>` inside a JSON string would close the tag containing it.
             .replace("__DATOS__", datos.replace("</", "<\\/")))

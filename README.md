@@ -126,6 +126,39 @@ Everything accepts `--json`.
 
 ---
 
+## A complement, not a replacement
+
+mcview is **not a code retrieval engine, and it should not be your only one.** If you need to
+find a symbol, read its source, or follow a call chain across 30 languages in milliseconds,
+use an indexer built for that — [codegraph](https://github.com/colbymchenry/codegraph) is the
+one this was measured against, and any similar pre-indexed graph serves the same role. They
+persist to SQLite, watch the file system, and answer retrieval questions faster than anything
+here will.
+
+The two answer different questions, and the split is clean:
+
+| | a code index | mcview |
+|---|---|---|
+| question | *show me the code, and who calls it* | *what shape is this, and what is rotting* |
+| unit | the symbol | the judgment over the whole |
+| gives you | verbatim source, call paths, blast radius | liveness with grades of evidence, structural duplication, usage mass, modularity, seams between repos, a pre-write gate |
+| freshness | persistent index + watcher | recomputed from today's AST |
+
+Run both. Ask the index *where things are*; ask mcview *whether the shape holds*.
+
+**Measured on the same 6.2k-symbol repository, and this is why they are not interchangeable.**
+Their inventories agree to within 0.3% — 6,168 symbols vs 6,186 — which is strong mutual
+validation of both extractors. Their reference graphs do not: 62% of symbols have no incoming
+edge in the index, against 1% that mcview reports as dead candidates. Feeding one tool's edges
+to the other would turn 70 deletion hypotheses into 3,810. Neither number is wrong for its own
+purpose — an index that drops an ambiguous reference is being conservative about *retrieval*,
+where a wrong edge sends you to the wrong file; mcview cannot drop it, because a missing edge
+is exactly how live code gets reported dead.
+
+So: use both, and do not cross the wires.
+
+---
+
 ## Install
 
 ```bash

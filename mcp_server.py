@@ -118,6 +118,21 @@ The decisions stay with the user and the reading stays with you. What moves here
 COST of being disciplined: what used to require holding the repo in your head, or trusting
 documentation that drifted, is now a measurement you can take in one call and cite.
 
+## Use it ALONGSIDE a code index
+
+This is not a retrieval engine and it is not your only tool. If you need to find a symbol,
+read its source, or follow a call chain across many languages, use a pre-indexed graph —
+codegraph or any equivalent. It is faster at that than anything here, and it is the right
+tool for it.
+
+    ask the index    where is it, what does it say, who calls it
+    ask mcview       what shape is this, what is dead, what is duplicated, what is central
+
+Do NOT cross the two. Measured on the same 6.2k-symbol repository: the inventories agree to
+within 0.3%, but 62% of symbols have no incoming edge in the index against the 1% mcview
+reports as dead. Reading a retrieval index's missing edge as evidence of dead code turns 70
+hypotheses into 3,810. If you have both, cite each for what it measures.
+
 Every answer is computed from today's AST, so it cannot be stale. Use it BEFORE writing
 code, not to explain code you already read.
 

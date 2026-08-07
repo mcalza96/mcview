@@ -29,6 +29,14 @@ flailing. What it points at still has to be read, and what to do about it is the
 call. Cite its numbers with the caveat attached — a number from here reported as a verdict
 is the one failure mode this tool was built to prevent.
 
+**Use it alongside a code index, not instead of one.** For finding a symbol, reading its
+source or following a call chain, a pre-indexed graph (codegraph or equivalent) is faster
+and covers more languages. Ask the index WHERE things are; ask mcview WHETHER THE SHAPE
+HOLDS. Do not cross them: measured on the same 6.2k-symbol repo their inventories agree to
+0.3%, but 62% of symbols have no incoming edge in the index against the 1% mcview reports
+as dead — a retrieval index drops ambiguous references on purpose, and reading that as dead
+code turns 70 hypotheses into 3,810.
+
 ```bash
 # get located (first thing, almost always). The target resolves in this order:
 mcview/mcview.py --orient "<Declared Module>"     # a module from the .toml's [modules]

@@ -27,6 +27,14 @@ for, which the tool does not know. `DEAD_CANDIDATE` is a hypothesis to verify, n
 deletion order, and deleting is the user's decision — your job is to bring the evidence and
 its caveat, not a conclusion.
 
+**Use it alongside a code index, not instead of one.** For finding a symbol, reading its
+source or following a call chain, a pre-indexed graph (codegraph or equivalent) is faster
+and covers more languages. Ask the index WHERE things are; ask mcview WHETHER THE SHAPE
+HOLDS. Do not cross them: measured on the same 6.2k-symbol repo their inventories agree to
+0.3%, but 62% of symbols have no incoming edge in the index against the 1% mcview reports
+as dead — a retrieval index drops ambiguous references on purpose, and reading that as dead
+code turns 70 hypotheses into 3,810.
+
 ```bash
 mcview/mcview.py                     # liveness levels + duplicates (the base view)
 mcview/mcview.py --map               # usage mass per file

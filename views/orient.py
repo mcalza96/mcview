@@ -67,10 +67,24 @@ def resolve(project, target: str) -> dict:
         if name.casefold() != plegado:
             continue
         archivos: set[str] = set()
+        exactos: set[str] = set()
         for t in targets:
+            # A door is usually a HANDLER, not a file, and the difference decides everything
+            # downstream. `resolve` returns FILES by design —a target is an area— so declaring
+            # `_handle_text_message` resolved to its whole file, and the walk then started at
+            # the heaviest of its 148 symbols, which was the OUTPUT formatter. Measured twice:
+            # pointing a surface at a file and at a handler gave the same wrong entry.
+            #
+            # So the exact symbols are kept alongside. `files` stays for the brief —cohesion
+            # and mass are per file— and `symbol_ids` is what seeds a flow.
+            exactos |= {sid for sid, sym in project.symbols.items() if sym.name == t}
             d = resolve(project, t)
             if "error" not in d:
                 archivos |= set(d.get("files", ()))
+        if exactos:
+            return {"kind": "surface", "name": name,
+                    "files": sorted({project.symbols[i].file for i in exactos}),
+                    "symbol_ids": sorted(exactos)}
         if archivos:
             # The SAME shape the other resolvers return —`kind`, `name`, `files`— and not one
             # of my own invention: the consumers read `name`, and a fourth shape crashed

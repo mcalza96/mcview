@@ -33,6 +33,10 @@ def _resolve(project, target: str) -> tuple[set[str], str | None]:
     # it as if it returned symbols gave the empty set, and the empty set does not fail: it
     # exits through "no connection to lock", which reads exactly like a finding.
     # `by_file` holds Symbol objects, not their ids; the id is the dict key.
+    # A surface may name the exact symbols that are its doors. Widening those back out to
+    # their whole files would undo the only thing that made the declaration worth writing.
+    if d.get("symbol_ids"):
+        return set(d["symbol_ids"]), None
     wanted = set(d.get("files", ()))
     ids = {sid for sid, s in project.symbols.items() if s.file in wanted}
     if not ids:

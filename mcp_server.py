@@ -191,12 +191,21 @@ class _Cache:
 CACHE = _Cache()
 
 
-def _resolve_config(project_name: str | None) -> str:
-    path = _config.discover(project_name)
+def _resolve_config(project_name: str | None, project_path: str | None = None) -> str:
+    """Find the config, walking up from `project_path` or from the process cwd.
+
+    `projectPath` is not a convenience: a server installed GLOBALLY is one process serving
+    many repositories, and without it every answer depends on which directory the client
+    happened to launch it from. Measured: the same call returns 6,186 symbols from the project
+    root and "no mcview.toml" from `/tmp`. Same name as codegraph's parameter on purpose —
+    the agent already knows it, and a familiar schema is one less thing to guess.
+    """
+    src = os.path.abspath(os.path.expanduser(project_path)) if project_path else None
+    path = _config.discover(project_name, src)
     if not path:
         which = f"mcview.{project_name}.toml" if project_name else "mcview.toml"
         raise _Missing(
-            f"No {which} found walking up from {os.getcwd()}. Declaring the roots is "
+            f"No {which} found walking up from {src or os.getcwd()}. Declaring the roots is "
             f"mandatory — without them reachability declares the whole project dead. "
             f"Call `mcview_init` to derive a starter config from what this project already "
             f"declares, then read what it wrote before believing any number."
@@ -218,6 +227,10 @@ def _t(name, desc, props, required=()):
 _PROJECT = {"type": "string",
             "description": "Workspace project to measure (uses mcview.<name>.toml). "
                            "Omit for the default."}
+_PATH = {"type": "string",
+         "description": "Absolute path to the repository to measure. Omit to use the "
+                        "directory the server was started in — pass it explicitly when the "
+                        "server is installed globally and serves more than one repo."}
 _LIMIT = {"type": "number", "description": "Max rows to return.", "default": 25}
 
 TOOLS = [
@@ -236,7 +249,7 @@ TOOLS = [
         "twins": {"type": "boolean", "default": False,
                   "description": "Include structural twins ('does this already exist'). Costs "
                                  "an order of magnitude more — turn on when about to WRITE."},
-        "project": _PROJECT},
+        "project": _PROJECT, "projectPath": _PATH},
        ["target"]),
 
     _t("mcview_process",
@@ -254,7 +267,7 @@ TOOLS = [
                     "description": "Mark which steps were SEEN executing, from the probe "
                                    "census. It confirms; it never rules out."},
         "depth": {"type": "number", "default": 4},
-        "project": _PROJECT},
+        "project": _PROJECT, "projectPath": _PATH},
        ["target"]),
 
     _t("mcview_route",
@@ -263,7 +276,8 @@ TOOLS = [
        "chokepoints (proven by removal), and where it crosses from one repo to another.",
        {"name": {"type": "string",
                  "description": "A route declared in [[routes]] of mcview.workspace.toml. "
-                                "Omit to list the declared ones."}},
+                                "Omit to list the declared ones."},
+        "projectPath": _PATH},
        []),
 
     _t("mcview_exists",
@@ -272,14 +286,14 @@ TOOLS = [
        "question, and it is the cheapest one here (milliseconds).",
        {"content": {"type": "string", "description": "The code about to be written."},
         "path": {"type": "string", "description": "Where it would live (for context)."},
-        "project": _PROJECT},
+        "project": _PROJECT, "projectPath": _PATH},
        ["content"]),
 
     _t("mcview_map",
        "Where the system goes: usage mass per file, computed as a random walk seeded at the "
        "declared entry points. Answers 'what is central here'. Read the caveat — this is "
        "centrality, not importance, and it is measured NOT to predict execution.",
-       {"limit": _LIMIT, "project": _PROJECT}, []),
+       {"limit": _LIMIT, "project": _PROJECT, "projectPath": _PATH}, []),
 
     _t("mcview_status",
        "Symbols at one grade of liveness. 'Alive' is not a boolean: ALIVE_PRODUCT_WEAK (alive "
@@ -289,7 +303,7 @@ TOOLS = [
                   "enum": ["ALIVE_PRODUCT", "ALIVE_PRODUCT_WEAK", "TEST_ONLY",
                            "ALIVE_BY_NESTING", "DEAD_CANDIDATE"],
                   "description": "Omit for the census summary of all levels."},
-        "limit": _LIMIT, "project": _PROJECT},
+        "limit": _LIMIT, "project": _PROJECT, "projectPath": _PATH},
        []),
 
     _t("mcview_locks",
@@ -299,7 +313,7 @@ TOOLS = [
        "a lock is worth putting, and emits the TOML block.",
        {"from": {"type": "string", "description": "Propose mode: the origin."},
         "to": {"type": "string", "description": "Propose mode: the sink."},
-        "project": _PROJECT},
+        "project": _PROJECT, "projectPath": _PATH},
        []),
 
     _t("mcview_seams",
@@ -309,7 +323,7 @@ TOOLS = [
        "also reports SHARED STATE: two projects touching one table without ever calling each "
        "other, which is usually where the authorization surface lives.",
        {"workspace": {"type": "boolean", "default": False},
-        "limit": _LIMIT, "project": _PROJECT},
+        "limit": _LIMIT, "project": _PROJECT, "projectPath": _PATH},
        []),
 
     _t("mcview_diff",
@@ -318,7 +332,7 @@ TOOLS = [
        "a gate the number gets optimized instead of the code.",
        {"ref": {"type": "string", "description": "Git ref to compare against (e.g. HEAD, "
                                                  "HEAD~1, a branch)."},
-        "project": _PROJECT},
+        "project": _PROJECT, "projectPath": _PATH},
        ["ref"]),
 
     _t("mcview_init",
@@ -327,7 +341,8 @@ TOOLS = [
        "uvicorn.run. Call it when another tool says there is no config. It PROPOSES with the "
        "provenance of every root written next to it — the human reviews before believing "
        "numbers. It never overwrites an existing config unless force=true.",
-       {"write": {"type": "boolean", "default": False,
+       {"projectPath": _PATH,
+        "write": {"type": "boolean", "default": False,
                   "description": "Write mcview.toml. With false it only returns what it would "
                                  "derive, which is the safe default for an agent."},
         "force": {"type": "boolean", "default": False}},
@@ -339,7 +354,8 @@ TOOLS = [
 def call(name: str, a: dict) -> dict:
     if name == "mcview_init":
         import bootstrap as _boot
-        root = os.getcwd()
+        root = (os.path.abspath(os.path.expanduser(a["projectPath"]))
+                if a.get("projectPath") else os.getcwd())
         findings = _boot.detect(root)
         text = _boot.render(root, findings)
         out = {
@@ -382,7 +398,7 @@ def call(name: str, a: dict) -> dict:
             "actually starts this project and write the roots by hand.")
         return out
 
-    cfg_path = _resolve_config(a.get("project"))
+    cfg_path = _resolve_config(a.get("project"), a.get("projectPath"))
     cfg, project = CACHE.get(cfg_path)
 
     if name == "mcview_orient":

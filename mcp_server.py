@@ -612,6 +612,25 @@ def serve() -> int:
                 # with an exact next step, so it comes back as a normal result carrying it.
                 _send({"jsonrpc": "2.0", "id": mid,
                        "result": _text({"error": str(e), "next": "mcview_init"})})
+            except SystemExit as e:
+                # `SystemExit` and NOT `Exception`, because it inherits from `BaseException`
+                # and a bare `except Exception` lets it through — which KILLS THE SERVER.
+                # The optional parsers exit rather than raise, because for a CLI user
+                # "install this and exit" is the right UX; for a long-lived server it is the
+                # worst possible one: the client loses the connection, every later call fails,
+                # and the reason is invisible. Measured on a global install with no
+                # tree-sitter: one call against a TypeScript project and the process was gone
+                # with exit code 1.
+                #
+                # It is the same bug, in the same shape, that once made `check_reach` die
+                # instead of skipping. Third time this class shows up — hence catching it
+                # here, at the one place every tool call passes through, rather than at each
+                # site that can raise it.
+                _send({"jsonrpc": "2.0", "id": mid, "result": _text({
+                    "error": str(e) or "the tool exited",
+                    "caveat": "This is a MISSING OPTIONAL DEPENDENCY, not a fact about the "
+                              "code being measured. Nothing was analyzed — do not read this "
+                              "as an empty result."})})
             except Exception as e:                                   # noqa: BLE001
                 _send({"jsonrpc": "2.0", "id": mid, "result": {
                     "isError": True,

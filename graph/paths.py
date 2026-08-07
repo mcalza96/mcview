@@ -78,16 +78,27 @@ def paths_to(project, sinks: set[str], roots: set[str], top: int = 12) -> list[l
     and to decide "does this root arrive without crossing a guard?" one is enough. The
     backwards BFS gives the SHORTEST, which is also the easiest to read as evidence.
     """
+    # SORTED at both ends, and this is the chokepoint of a whole class of variance. This BFS
+    # records the FIRST path that reaches each node, so the order in which it starts and
+    # expands decides WHICH path survives. `sinks` and the values of `inv` are sets, whose
+    # iteration order depends on the process's string hashing — so the same command produced
+    # different paths, and with them different guard fractions: `get_async_supabase_client`
+    # came out at 67% under one seed and 72% under another. A number that moves with the hash
+    # seed is not a measurement.
+    #
+    # It is fixed HERE and not in the twelve views that consume it: `--orient`, `--flow`, both
+    # mermaid outputs and the HTML page all read these paths, and `golden.py --seeds` reported
+    # all twelve as seed-dependent.
     inv = _incoming(project)
-    seen: dict[str, list[str]] = {s: [s] for s in sinks}
-    queue = deque(sinks)
+    seen: dict[str, list[str]] = {s: [s] for s in sorted(sinks)}
+    queue = deque(sorted(sinks))
     paths: list[list[str]] = []
     raices_halladas: set[str] = set()
     while queue:
         n = queue.popleft()
         if len(seen[n]) > top:
             continue
-        for prev in inv.get(n, ()):
+        for prev in sorted(inv.get(n, ())):
             if prev in seen:
                 continue
             seen[prev] = [prev] + seen[n]

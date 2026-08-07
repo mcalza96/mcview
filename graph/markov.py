@@ -87,7 +87,12 @@ def expected_visits(P: dict[str, list[tuple[str, float]]], entry: set[str],
     It iterates until it stops moving. The alternative is inverting (I−Q), which gives the
     same result and requires numpy; here the main path runs with no dependencies.
     """
-    visits: dict[str, float] = {e: 1.0 for e in entry}
+    # SORTED, and the reason is arithmetic, not cosmetic: `entry` is a set, so the insertion
+    # order of `visits` —and therefore of `front`— varied between processes, and floating-point
+    # addition is NOT associative. The same chain over the same graph returned shares that
+    # differed in the last bits, which is enough to change a rounded percentage and to make two
+    # identical runs disagree.
+    visits: dict[str, float] = {e: 1.0 for e in sorted(entry)}
     front: dict[str, float] = dict(visits)
     for _ in range(MAX_PASSES):
         nxt: dict[str, float] = defaultdict(float)

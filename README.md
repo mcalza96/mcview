@@ -525,7 +525,7 @@ invisible.
 | **The skills travel inside** | `orient-session`, `mcview-repo`, `mcview-process`, `mcview-install`. Shipping the engine without the manual is what lets somebody read a ranking as a conclusion. |
 | **Expensive views are not MCP tools** | Full duplicate analysis, `--k`, `--hierarchy`, `--islands` and `--views` run in minutes on a large repo. A call that blocks for minutes is one nobody makes twice. |
 
-Seven self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
+Eight self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
 config key drifting from its reader — the view returns empty, which reads as a finding — and
 encapsulation eroding until the directory no longer copies cleanly. The latter runs the CLI as a
 subprocess from a temporary directory, because importing the modules proves nothing when

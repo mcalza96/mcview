@@ -320,7 +320,7 @@ def reach_all(weave, entry: str, rank: dict[str, float], obs: dict[str, int] | N
 
     total = sum(visitas.values()) or 1.0
     por_linea: dict[str, dict] = {}
-    for sid in alcanzables:
+    for sid in sorted(alcanzables):
         linea = _lane(weave, sid)
         fila = por_linea.setdefault(linea, {"line": linea, "symbols": 0, "unambiguous": 0,
                                             "share": 0.0, "executed": 0})

@@ -70,7 +70,7 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
     total = sum(masa.values()) or 1.0
 
     nodes = []
-    for m in sorted(masa, key=lambda x: -masa[x]):
+    for m in sorted(masa, key=lambda x: (-masa[x], x)):
         n = {
             "id": m,
             # Deliberately EMPTY. It is the one field this module cannot fill, and leaving it
@@ -108,7 +108,13 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
             continue
         a = cfg.module_of(so.file)
         firmes = project.strong_edges.get(o, ())
-        for d in ds:
+        # SORTED, and it is not cosmetic. `ds` is a set, so its iteration order depends on the
+        # process's string hashing — the counts survive that (they are sums) but WHICH three
+        # calls land in `evidence` does not. Two identical runs handed the reader different
+        # lines to go and check, and a `--diff` over this output would have shown a change
+        # where nothing changed. Same class as a bug already found in the gather path of the
+        # project this was built for.
+        for d in sorted(ds):
             sd = project.symbols.get(d)
             if not sd:
                 continue
@@ -126,7 +132,7 @@ def build(project, rank: dict[str, float], obs: dict[str, int] | None = None) ->
 
     edges = [{"from": a, "to": b, "refs": n, "unambiguous": fuertes[(a, b)],
               "evidence": muestra[(a, b)]}
-             for (a, b), n in sorted(refs.items(), key=lambda x: -x[1])
+             for (a, b), n in sorted(refs.items(), key=lambda x: (-x[1], x[0]))
              if a in conocidos and b in conocidos]
 
     # -- doors ----------------------------------------------------------------

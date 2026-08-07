@@ -193,7 +193,7 @@ def orient(project, rank: dict[str, float], levels: dict[str, set[str]],
           "loc": project.symbols[sid].loc,
           "mass_pct": 100.0 * rank[sid] / total_mass}
          for sid in inside if rank.get(sid, 0.0) > FRIO),
-        key=lambda f: -f["mass_pct"])[:top]
+        key=lambda f: (-f["mass_pct"], f["loc"]))[:top]
 
     v = neighbors(project, inside, files, file_mass)
     cfg = project.cfg

@@ -127,7 +127,7 @@ def by_file(project, rank: dict[str, float]) -> list[dict]:
         "symbols": count[a],
         "frios": frios[a],
     } for a, m in mass.items()]
-    rows.sort(key=lambda f: -f["mass"])
+    rows.sort(key=lambda f: (-f["mass"], f["file"]))
     return rows
 
 
@@ -162,7 +162,7 @@ def by_module(project, rank: dict[str, float]) -> list[dict]:
     rows = [{"module": m, "pct": 100.0 * v / total, "symbols": simb[m],
               "files": len(arch[m]), "frios": frios[m],
               "area": cfg.area_of(sorted(arch[m])[0])} for m, v in mass.items()]
-    rows.sort(key=lambda f: -f["pct"])
+    rows.sort(key=lambda f: (-f["pct"], f["module"]))
     return rows
 
 

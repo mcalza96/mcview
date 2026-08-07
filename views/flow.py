@@ -110,7 +110,7 @@ def common_steps(paths: list[list[str]], project, threshold: float = STEP_THRESH
     out = [{"name": project.symbols[n].name, "loc": project.symbols[n].loc,
               "fraccion": v / total, "en": v, "from": total}
              for n, v in count.items() if v / total >= threshold]
-    return sorted(out, key=lambda x: -x["fraccion"])
+    return sorted(out, key=lambda x: (-x["fraccion"], x["loc"]))
 
 
 def branchings(paths: list[list[str]], project, top: int = 5) -> list[dict]:
@@ -124,7 +124,7 @@ def branchings(paths: list[list[str]], project, top: int = 5) -> list[dict]:
               "outputs": len(project.edges.get(n, ()))}
              for n in seen]
     return sorted((f for f in rows if f["outputs"] > 1),
-                  key=lambda f: -f["outputs"])[:top]
+                  key=lambda f: (-f["outputs"], f["loc"]))[:top]
 
 
 def targets(project, inside: set[str], rank: dict[str, float], top: int = 8) -> list[dict]:
@@ -143,7 +143,11 @@ def targets(project, inside: set[str], rank: dict[str, float], top: int = 8) -> 
     afuera = seen - inside
     total = sum(rank.values()) or 1.0
     por_arch: dict[str, dict] = defaultdict(lambda: {"n": 0, "terminales": 0, "mass": 0.0})
-    for sid in afuera:
+    # SORTED: `afuera` is a set and the masses below are ACCUMULATED. Floating-point addition
+    # is not associative, so the same set summed in a different order gave 0.023309784847592552
+    # against ...555 — a difference in the last bits, invisible on screen, enough to change the
+    # hash and enough to flip a rounded percentage sitting on a boundary.
+    for sid in sorted(afuera):
         s = project.symbols[sid]
         e = por_arch[s.file]
         e["n"] += 1
@@ -151,7 +155,7 @@ def targets(project, inside: set[str], rank: dict[str, float], top: int = 8) -> 
         if not project.edges.get(sid):
             e["terminales"] += 1
     rows = [{"file": a, **v, "mass_pct": 100 * v["mass"]} for a, v in por_arch.items()]
-    return sorted(rows, key=lambda f: -f["mass_pct"])[:top], len(afuera)
+    return sorted(rows, key=lambda f: (-f["mass_pct"], f["file"]))[:top], len(afuera)
 
 
 def _for_sequence(project, paths: list[list[str]], rank: dict[str, float],
@@ -206,12 +210,14 @@ def trace(project, inside: set[str], rank: dict[str, float], top: int = 6) -> di
     # list showed one: they were counting different sets.
     declaradas = getattr(project, "product_roots", set())
     por_puerta: Counter = Counter(c[-1] for c in paths)
+    # `entries` is a set, so two gates that are both declared and both weigh the same came out
+    # in whatever order the process happened to hash them. The id closes the tie.
     gate_order = sorted(entries,
-                           key=lambda p: (p not in declaradas, -rank.get(p, 0.0)))
+                           key=lambda p: (p not in declaradas, -rank.get(p, 0.0), p))
     # The example path is the LONGEST, not the shortest. `paths_to` returns the shortest per
     # root because for "does this root arrive without crossing a guard?" one is enough; here
     # the question is different —showing the chain— and a two-node path shows none.
-    ejemplo = max(paths, key=len) if paths else None
+    ejemplo = max(paths, key=lambda c: (len(c), c)) if paths else None
     return {
         "raices_que_llegan": len(paths),
         "gates": [{"name": project.symbols[p].name,
@@ -268,7 +274,7 @@ def neighbors_by_module(project, inside: set[str], files: set[str]) -> tuple[lis
         (inbound if d_inside else outbound)[cfg.module_of(other)] += weight
 
     call_order = lambda d: sorted(({"module": m, "refs": round(v, 1)} for m, v in d.items()),
-                             key=lambda f: -f["refs"])
+                             key=lambda f: (-f["refs"], f["module"]))
     return call_order(inbound), call_order(outbound)
 
 
@@ -276,11 +282,11 @@ def _internal_parts(files: set[str], top: int = 5) -> list[dict]:
     """The target's pieces, grouped by directory. `ingest/`, `api/v1/routers/…`:
     the subsystem's internal shape without listing 31 files."""
     grupos: dict[str, int] = defaultdict(int)
-    for a in files:
+    for a in sorted(files):
         parts = a.split("/")
         grupos["/".join(parts[:-1]) + "/" if len(parts) > 1 else parts[0]] += 1
     rows = [{"dir": d, "n": n} for d, n in grupos.items()]
-    return sorted(rows, key=lambda f: -f["n"])[:top]
+    return sorted(rows, key=lambda f: (-f["n"], f["dir"]))[:top]
 
 
 def mermaid_sequence(r: dict, target: str, tope_caminos: int = 9) -> str:

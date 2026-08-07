@@ -160,6 +160,24 @@ Four traps:
   ceiling. The partition did not get worse; the yardstick grew. Facing a ratio that moves,
   ALWAYS look at both of its terms before telling a story.
 
+## If a number moved between two runs
+
+Before explaining WHY it changed, check that it changed at all. Two causes look identical from
+outside and only one is a finding:
+
+- **the code changed** — this measures today's AST, so an edit anywhere moves the numbers, and
+  they will reproduce exactly on the same tree;
+- **the tool was not deterministic** — which happened: twenty-three views were compared and six
+  differed between two runs over identical code, one moving a computed percentage from 67% to
+  72%.
+
+```bash
+mcview/selfcheck/check_determinism.py    # ~10 s · no baseline, nothing to configure
+```
+
+Run it before reporting a difference as a finding. Variance is a symptom, never an explanation:
+if a number oscillates, something deterministic is hiding underneath it.
+
 ## What the tool does NOT see
 
 These are the blind spots that produce false "dead":

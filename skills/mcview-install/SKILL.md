@@ -32,6 +32,7 @@ my-project/
 mcview/mcview.py --init                       # derive a starter mcview.toml — then READ it
 mcview/mcview.py                              # the census — if this runs, it is installed
 mcview/selfcheck/check_portability.py         # proves the copy is self-sufficient
+mcview/selfcheck/check_determinism.py         # proves it answers the same thing twice
 ```
 
 **Start with `--init`, and then read what it wrote.** It does not replace the section below —
@@ -191,3 +192,19 @@ mcview/selfcheck/check_external_index.py            # verify it has not grown
 Read the divergence before pinning it. On Python the two agree to within 0.2%; a number far
 from that is either a real parser gap or a scoping mistake in the comparison, and pinning it
 unread turns the lock into a rubber stamp.
+
+Finally, confirm the tool answers the SAME thing twice. It sounds too obvious to check and it
+was not: twenty-three views were compared and six of them differed between two runs over
+identical code, one of them moving a computed percentage from 67% to 72%.
+
+```bash
+mcview/selfcheck/check_determinism.py    # ~10 s
+```
+
+It needs no baseline and nothing to configure: it runs two processes with different
+`PYTHONHASHSEED`, builds the graph ONCE in each, renders every view against it, and compares.
+If it fails, the cause is almost always the same shape and the fix belongs at the source, never
+at the view that showed it: something walked a `set` and either broke a tie by insertion order
+or ACCUMULATED FLOATS — and floating-point addition is not associative, so the same set summed
+in a different order returns a different number in the last bits. That is invisible on screen
+and enough to flip a rounded percentage sitting on a boundary.

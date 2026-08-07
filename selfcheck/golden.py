@@ -46,6 +46,13 @@ import re
 import subprocess
 import sys
 
+# The layers, mounted like every other lock does. Without this `_targets` raised
+# ModuleNotFoundError on `config` and `--seeds` — the check written to catch output that
+# depends on PYTHONHASHSEED — had never run. It was found by a non-determinism it would have
+# caught: the same command produced two different evidence samples in `--blueprint`.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import _layers  # noqa: E402,F401
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 MCVIEW = os.path.dirname(HERE)
 REPO = os.path.dirname(MCVIEW)
@@ -142,8 +149,15 @@ def _targets(toml_path: str, how_many: int) -> list[str]:
     return (declared or [m for m, _ in counts.most_common()])[:how_many]
 
 
-def _cases(full: bool):
+def _cases(full: bool, only: str | None = None):
+    """`only` was PARSED and never passed here. The flag was documented in the module header,
+    accepted on the command line, and did nothing — so `--only principal`, advertised at ~90 s,
+    silently ran all four projects and took as long as the full sweep. Found while waiting for
+    it. Same class as a config key with no reader: the caller believes the scope was narrowed.
+    """
     for project, cfg in _configs().items():
+        if only and not project.startswith(only):
+            continue
         principal = project == PRINCIPAL
         for name, args in VISTAS_GLOBALES:
             if not (principal or full or name in HUMO):
@@ -202,7 +216,7 @@ def main():
     os.makedirs(GOLDEN, exist_ok=True)
     failures, n = [], 0
 
-    for name, cfg, args in _cases(full):
+    for name, cfg, args in _cases(full, only):
         n += 1
         got = run(cfg, args)
         target_node = os.path.join(GOLDEN, name + ".txt")

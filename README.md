@@ -90,6 +90,26 @@ of our own edges against 9,770 of theirs (11.5×)**.
 
 ## Quickstart
 
+Two ways in, and the first one is the primary:
+
+```bash
+# A. copy the directory — no install, no build, works offline, and it is what the
+#    skills and the portability lock document and verify
+git clone https://github.com/mcalza96/mcview && cp -r mcview/ /path/to/your-project/
+
+# B. install from git — nothing to clone, `mcview` lands on your PATH
+uvx --from git+https://github.com/mcalza96/mcview mcview --map
+pipx install git+https://github.com/mcalza96/mcview
+```
+
+Both models coexist because the entrypoint does the same thing either way: `mcview.py` puts
+its own directory on `sys.path` and lets `_layers` mount the rest, so the flat imports resolve
+whether the directory was copied or installed. **Python 3.11+, zero dependencies on the main
+path.** It is not on PyPI: the name is taken there by an unrelated project.
+
+The rest of this README, and every command block in the four skills, is written for **A** —
+`mcview/mcview.py …`. With **B**, drop the path and use `mcview …`.
+
 ```bash
 # 1. copy the directory into your project
 cp -r mcview/ /path/to/your-project/
@@ -122,6 +142,8 @@ dispatch dict. See [`skills/mcview-install`](skills/mcview-install/SKILL.md) for
 and how to check the yardstick is not broken before believing a number.
 
 Supports **Python** (stdlib `ast`) and **TypeScript/TSX** (`tree_sitter`, optional).
+Requires Python **3.11+** — that is where `tomllib` became stdlib, which is what keeps the
+main path at zero dependencies.
 
 ---
 

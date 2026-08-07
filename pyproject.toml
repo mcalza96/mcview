@@ -1,0 +1,102 @@
+# Packaging is the SECOND way to install this, never the first.
+#
+# The tool's promise is "copy the directory and write one .toml" — that is what the README
+# documents, what the four skills write in their 54 command blocks, and what
+# `selfcheck/check_portability.py` verifies by copying `mcview/` into a temporary directory and
+# running the CLI as a subprocess. None of that changes here.
+#
+# What this file adds is a way to get it without cloning:
+#
+#     uvx --from git+https://github.com/mcalza96/mcview mcview --map
+#     pipx install git+https://github.com/mcalza96/mcview
+#
+# Both models coexist because the entrypoint does the same thing either way: `mcview.py`
+# inserts its own directory into `sys.path` and lets `_layers` mount the rest, so the flat
+# imports resolve whether the directory was copied or installed.
+#
+# NOT published to PyPI: the name `mcview` is taken there by an unrelated project (a 3D event
+# viewer for high-energy physics). Publishing would require a distribution name that differs
+# from the command, which is a decision for whoever wants it — this file installs from git,
+# where the name does not have to be unique.
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcview"
+version = "1.0.0"
+description = "Structural understanding of a codebase, computed in seconds — for whoever has to change it without having read it."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Marcelo Calzadilla" }]
+keywords = ["static-analysis", "ast", "dead-code", "pagerank", "code-quality", "architecture"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+# 3.11 is the floor because `tomllib` is stdlib from there, and that is what keeps the main
+# path at ZERO dependencies — the property `check_portability` verifies by blocking the
+# optional modules rather than by reading the imports. The code still carries a `tomli`
+# fallback for anyone copying the directory into an older project; the package does not
+# declare it, because declaring a dependency to support a version this package does not claim
+# would be the tool asserting more than it measures.
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+# Only the community family asks for these: --modules, --k, --hierarchy, --islands, --views.
+# Everything else —census, --map, --orient, --flow, --sequence, --atlas, the gate— runs on the
+# bare stdlib.
+communities = ["numpy", "scipy"]
+# Only needed to analyze TypeScript/TSX projects.
+typescript = ["tree_sitter", "tree_sitter_typescript"]
+
+[project.urls]
+Homepage = "https://github.com/mcalza96/mcview"
+Issues = "https://github.com/mcalza96/mcview/issues"
+
+[project.scripts]
+mcview = "mcview.mcview:main"
+
+# THE REPOSITORY ROOT *IS* THE TOOL DIRECTORY — there is no `mcview/mcview/` nesting, because
+# the thing you copy into another project is this directory itself. So the package has to be
+# mapped explicitly: without `package-dir`, `packages.find` looks for a subdirectory named
+# `mcview`, finds none, and builds a wheel containing nothing but metadata. (Measured: the
+# first build produced exactly that — 6 files, all dist-info, and it installs without error.
+# An empty package that installs cleanly is the same class of silent failure this tool exists
+# to catch.)
+#
+# The layers stay listed as packages WITHOUT `__init__.py`: `_layers.py` explains why they are
+# directories and not packages — a real package forces `python -m mcview` and breaks the
+# by-path invocation the skills and the portability lock depend on.
+[tool.setuptools]
+package-dir = { "mcview" = "." }
+packages = [
+    "mcview",
+    "mcview.extraction",
+    "mcview.graph",
+    "mcview.views",
+    "mcview.render",
+    "mcview.selfcheck",
+]
+
+# The skills and the diagram renderer are DATA, not modules: `skills/mcview-repo/` is not a
+# valid package name and `vendor/mermaid.min.js.gz` is a blob. They travel anyway — leaving
+# them out would ship the engine without the manual, which is the half that keeps somebody
+# from reading a ranking as a conclusion.
+[tool.setuptools.package-data]
+mcview = [
+    "vendor/*",
+    "skills/*/SKILL.md",
+    "skills/*/scripts/*",
+    "skills/*/evals/*",
+    "LICENSE",
+]

@@ -9,3 +9,8 @@ __pycache__/
 # installation, like the census — record your own with:
 #     mcview/selfcheck/golden.py --grabar
 selfcheck/golden/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/

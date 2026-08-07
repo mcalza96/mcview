@@ -162,15 +162,29 @@ product_dirs = ["app/"]
 '''
 
 
-def _ts_phase() -> list[str]:
-    """Same contract as the Python phase. It is skipped if tree-sitter is missing: the lock must
-    not become an environment blocker for somebody working only on the Python side."""
+def _ts_phase() -> list[str] | None:
+    """Same contract as the Python phase. Returns None when it was SKIPPED, and a (possibly
+    empty) list of failures when it actually ran.
+
+    The distinction is not pedantry: it is skipped if tree-sitter is missing —the lock must not
+    become an environment blocker for somebody working only on the Python side— and the summary
+    has to say which of the two happened. Returning `[]` for both made it print
+    `typescript 5/5` on the line right after `TypeScript skipped`, which is a green claiming
+    coverage it never had. Measured in a clean venv, which is the environment where anyone
+    installing this lands.
+    """
+    # `SystemExit` on purpose, and it is not defensive noise: `ts._Parser.create()` raises it
+    # —not ImportError— because for a CLI user "install this and exit" is the right UX. But
+    # `SystemExit` inherits from `BaseException`, not `Exception`, so a bare `except Exception`
+    # lets it through and the lock dies instead of skipping. Measured in a clean venv, which is
+    # exactly the environment this promise exists for: the docstring said "it is skipped" and
+    # it was not.
     try:
         import ts  # noqa: F401
         ts._Parser.create()
-    except Exception as e:                                   # noqa: BLE001
+    except (Exception, SystemExit) as e:                     # noqa: BLE001
         print(f"  · TypeScript skipped (no parser: {type(e).__name__})")
-        return []
+        return None
 
     failures = []
     with tempfile.TemporaryDirectory() as d:
@@ -247,12 +261,15 @@ def main() -> int:
             if vivo in dead:
                 failures.append(f"{vivo} became DEAD_CANDIDATE — the filter erased a real edge")
 
-    failures += _ts_phase()
+    ts_failures = _ts_phase()
+    ran_ts = ts_failures is not None
+    failures += ts_failures or []
 
     for f in failures:
         print(f"  ✗ {f}")
     if not failures:
-        print("  ✓ lexical scope: python 6/6 · typescript 5/5 · live symbols intact")
+        ts = "typescript 5/5" if ran_ts else "typescript SKIPPED (no parser)"
+        print(f"  ✓ lexical scope: python 6/6 · {ts} · live symbols intact")
     return 1 if failures else 0
 
 

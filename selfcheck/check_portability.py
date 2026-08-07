@@ -196,10 +196,17 @@ def main() -> int:
                 failures.append(f"{piece} did not travel with the tool ({path})")
 
         # --- nothing from THIS repository leaked in -----------------------
+        # A PROJECT config inside the tool is the failure this catches: while `mcview.toml`
+        # lived in `mcview/`, extracting the module carried the previous project's roots,
+        # modules and seams with it. `pyproject.toml` is not that — it is the packaging
+        # manifest, it describes the tool and not any project measured by it, and it has to
+        # travel. The rule names what it is looking for instead of matching every `.toml`,
+        # because a lock that fires on the wrong thing gets widened until it fires on nothing.
+        PACKAGING = {"pyproject.toml"}
         for root, _, files in os.walk(os.path.join(d, "mcview")):
             for a in files:
-                if a.endswith(".toml"):
-                    failures.append(f"a config was left inside the tool: {a}")
+                if a.endswith(".toml") and a not in PACKAGING:
+                    failures.append(f"a project config was left inside the tool: {a}")
 
         # --- the skills' COMMANDS are not overfitted to this repo ---------
         failures += _generic_commands(d)

@@ -143,7 +143,7 @@ def main() -> int:
     for f in failures:
         print(f"  ✗ {f}")
     if not failures:
-        print("  ✓ blocks anidados: 4/4")
+        print("  ✓ nested blocks: 4/4")
     return 1 if failures else 0
 
 

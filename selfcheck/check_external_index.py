@@ -164,6 +164,22 @@ def compare(cfg_path: str) -> dict | None:
             if sd:
                 mine_edges.add(((so.file, so.name), (sd.file, sd.name)))
 
+    # THE TREE, stamped with the numbers. This lock pins a baseline and the baseline ages
+    # against a repository somebody else is working in: measured, it fired on a project this
+    # session never touched while a `.tsx` was being edited, and reported it as a regression.
+    # Third time a lock here mistook a moving tree for one — `check_determinism` got the same
+    # guard for the same reason. A lock that fabricates a catastrophe trains you to ignore it.
+    import hashlib as _h
+    huella = _h.sha256()
+    for dirpath, dirnames, filenames in os.walk(cfg.root):
+        dirnames[:] = sorted(d for d in dirnames if d not in cfg.ignored_dirs)
+        for nombre in sorted(filenames):
+            try:
+                st = os.stat(os.path.join(dirpath, nombre))
+            except OSError:
+                continue
+            huella.update(f"{nombre}:{st.st_mtime_ns}:{st.st_size}".encode())
+
     theirs, their_calls = _theirs(db_path, repo_root, cfg.root, cfg)
     # Only edges whose BOTH ends exist in mcview's inventory. An edge toward a symbol mcview
     # never saw is an inventory difference (check A) and counting it here too would report
@@ -175,6 +191,7 @@ def compare(cfg_path: str) -> dict | None:
         "only_mine": len(mine - theirs), "only_theirs": len(theirs - mine),
         "comparable_calls": len(comparable),
         "missing_calls": len(comparable - mine_edges),
+        "tree": huella.hexdigest()[:16],
     }
 
 
@@ -203,6 +220,10 @@ def main() -> int:
         b = base.get(name)
         if not b:
             skipped.append(f"{name} (no baseline — run --record)")
+            continue
+        if b.get("tree") and b["tree"] != r["tree"]:
+            skipped.append(f"{name} (the tree changed since the baseline — any difference is "
+                           f"unattributable; re-record on a quiet tree)")
             continue
         for k, label in (("only_mine", "symbols only mcview has"),
                          ("only_theirs", "symbols only the index has"),

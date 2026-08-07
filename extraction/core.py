@@ -366,6 +366,38 @@ class Project:
         for rel, tree in self._arboles.items():
             self._analyze(rel, tree)
 
+        # step 4 — THE DECLARED DOORS ARE ROOTS. It runs last because it needs the inventory:
+        # a surface names symbols, and until step 1 finished there were none to name.
+        #
+        # Why it is worth its own step. A file listed in `dirs` makes EVERY symbol in it a
+        # root, which is right for a directory loaded by name and wrong for an entry point:
+        # measured on a gateway, eight entry FILES contributed 1,234 roots where the project's
+        # own `[project.scripts]` declares eight `main`s. With everything an entrance there is
+        # no "how do you get in", and the heat map ends up measuring the files you declared
+        # instead of where a message arrives — its top three were the declared files
+        # themselves, and became the three platform adapters once the doors were exact.
+        #
+        # Cost of the precision, measured on the same project: 8 symbols move to
+        # DEAD_CANDIDATE, one of them a module-level `__getattr__` that Python calls itself.
+        # They were alive because their FILE was a root, not because anything reaches them.
+        self._seed_from_surfaces()
+
+    def _seed_from_surfaces(self) -> None:
+        """`[surfaces]` → roots. A door is a door whether or not it is also in `dirs`."""
+        for nombre, objetivos in (getattr(self.cfg, "surfaces", {}) or {}).items():
+            for t in objetivos:
+                # `file.py:symbol` when the name is not unique — `main` exists once per
+                # entry point, so naming it alone would seed all of them at once.
+                archivo, _, simbolo = t.rpartition(":")
+                ids = {sid for sid, s in self.symbols.items()
+                       if s.name == (simbolo or t) and (not archivo or s.file == archivo)}
+                if not ids:
+                    continue
+                self.roots |= ids
+                self.product_roots |= ids
+                self.reasons["surface"] += len(ids)
+                self.roots_by_reason["surface"] |= ids
+
     def _map_reach(self, rel: str, tree: ast.AST):
         """symbol → names that do NOT refer to a project symbol because they are local.
 

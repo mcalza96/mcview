@@ -45,7 +45,10 @@ a path. The config discovers itself by walking up from the current directory.
 `--no-duplicates` skips the expensive part of the base view (the full base takes tens of
 seconds; without duplicates, seconds).
 
-**Level 2** (`mcview/views/guards.py`) has no flag: it is imported. See its section below.
+**Level 2** (`mcview/views/guards.py`) is a LIBRARY with no CLI flag and, today, no caller
+inside the tool — you import it and pass it level-1 output. Treat the section below as the
+method it encodes; the four findings it describes were reached by asking those questions by
+hand, not by running a command.
 
 ## Pick the depth before starting
 
@@ -428,6 +431,10 @@ connects it with fewer bugs. The cost is real: more files, more imports, fragmen
 history.
 
 ## Level 2: from signals to GUARDS
+
+> Not wired: `views/guards.py` has no flag and nothing imports it. What follows is the method —
+> the two questions that pay off and how to read their answers. Questions 1 and 4 are computed
+> from what level 1 already gives you; the module implements them if you import it.
 
 Everything above is a **graph** question: who references whom. It finds what is *left over*. It
 does not find what is *wrong*, and it does not tell a `require_admin` from a CRUD.

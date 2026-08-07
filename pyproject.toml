@@ -95,6 +95,7 @@ packages = [
 [tool.setuptools.package-data]
 mcview = [
     "vendor/*",
+    "docs/*",
     "skills/*/SKILL.md",
     "skills/*/scripts/*",
     "skills/*/evals/*",

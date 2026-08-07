@@ -198,6 +198,12 @@ Verdicts are exact, not sampled. `--propose <a> <b>` ranks candidates by mass an
 block; an empty result means nothing is interposed, so there is no chokepoint to put a guarantee
 on — building one is design, not cleanup.
 
+**Status, plainly: this is a capability, not yet a practice.** The primitive is verified against
+13 graphs with known answers (`selfcheck/check_contracts.py`), and no project has declared a
+contract yet — the half that gets used is `--propose`, and its finding so far has been *there is
+no chokepoint here*. Read the section as "what this makes possible", not as "what teams do with
+it".
+
 ---
 
 ## Crossing the repository boundary
@@ -236,8 +242,9 @@ flowchart LR
 
 A random walker starts at the declared entry points and follows references. Where it spends its
 time is the usage mass (personalized PageRank); where it gets trapped are the modules (Markov
-clustering). Same chain, two questions. A helper called once from the heart of the system
-outweighs one called twenty times from a cold corner — a flat count says the opposite.
+clustering); how often a route crosses a node is an absorbing chain. Same matrix, three
+questions — [`docs/THEORY.md`](docs/THEORY.md) has the formulas, the parameters that were
+measured rather than chosen, and where each one runs.
 
 Paths and locks run on **unambiguous edges only**. On the reference project the complete graph
 has 124,531 edges against 8,058 unambiguous ones, and with the former everything reaches
@@ -293,17 +300,61 @@ invisible.
 Where code is resolved by name — plugins, platform adapters, dispatch tables, an agent's tools —
 no static analysis reaches, and a low number there means "I cannot see it", not "unused".
 
-The probe belongs to the measured project, not to the tool; mcview reads the JSONL it leaves in
-`<root>/.mcview/`. It uses `sys.monitoring` (PEP 669, 3.12+) and returns `DISABLE`, which turns
-monitoring off for that code object after the first hit: each function costs once. It is a
-census, not a profiler, and can be left on in a real process — measured overhead over 3M calls
-was indistinguishable from noise.
-
-It only promotes to alive, never demotes to dead.
-
 Not a nicety: a gateway's agent loop measured 0.05% of static mass — under any automatic
 criterion the first thing to delete. The runtime census showed 50% of its symbols ran. The static
 graph could not see it.
+
+**The probe is not part of mcview.** It lives in the project being measured, because it has to
+run inside that project's deployed process. mcview only reads the JSONL it leaves behind.
+A reference implementation is in `docs/liveness_probe.py`; it uses `sys.monitoring` (PEP 669) and
+returns `DISABLE`, which turns monitoring off for that code object after the first hit — each
+function costs once and nothing thereafter. It is a census, not a profiler, and can be left on in
+a real process: measured overhead over 3M calls was indistinguishable from noise.
+
+### What has to be true for it to record anything
+
+Every one of these fails **silently and identically**: an empty census, which reads as "nothing
+ran" when it means "nothing was measured".
+
+| condition | if unmet |
+|---|---|
+| `MCVIEW_PROBE=1` | no-op. Off by default on purpose — turning on observability nobody asked for is the kind of change nobody can later explain. |
+| **Python 3.12+** | `sys.monitoring` does not exist; the probe returns `False` and says nothing. |
+| `MCVIEW_PROBE_DIR` writable | returns `False` on `OSError`. |
+| Code under `MCVIEW_PROBE_ROOT` (default `/app`) | every file is filtered out as foreign. Wrong root in a container ⇒ zero rows. |
+| `iniciar()` runs **in the deployed process** | see the two traps below. |
+| No other profiler holds `PROFILER_ID` | the tool id is taken and monitoring never starts. |
+
+### What has to be true for mcview to read it
+
+| condition | note |
+|---|---|
+| Files land in `<project root>/.mcview/` or `<project root>/.salud/` | point `MCVIEW_PROBE_DIR` there, or copy them in. (`.salud/` is read too, for probes predating the rename.) |
+| Filename contains `liveness` | anything else in that directory is ignored. |
+| The path resolves to a file in the project | the container path (`/app/api/x.py`) is trimmed by the longest suffix that is a known file — no declared prefix to age out. |
+| Symbol matches file **+ name + line** (±3 tolerance) | by name alone, a project's 96 `main`s would all be confirmed by the one that ran. The tolerance exists because the probe stamps the code object's first line and the inventory stamps the `def` — with decorators those differ. |
+
+### Two traps that produced an empty census, both measured
+
+- **The probe was not in the baked image.** The variable was set, the service was up, the file
+  was never written.
+- **The container started the service in-process**, so the `main()` holding the hook never ran.
+  Wiring it at module import fixed it.
+
+Both looked identical from outside: probe "on", census empty. **Before believing a census, check
+that it MEASURED** — that the file exists and has lines — not that the variable is set. The probe
+is wired inside a `try/except` so it cannot block startup, and that same choice is what makes it
+fail quietly.
+
+### Reading it
+
+It only promotes to alive, never demotes to dead. Something absent may have run outside the
+observed window, sat behind an `if`, or run in a process with no probe. And it is **one window**:
+a module that only runs in a scheduled task shows zero and is not dead. For fine-margin
+decisions, leave it running for days, not minutes.
+
+If a `DEAD_CANDIDATE` shows up as executed, that is not a detail: the static analysis was wrong
+and a root is undeclared. Fix the `.toml` before reading anything else in that run.
 
 ---
 

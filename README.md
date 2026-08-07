@@ -1,183 +1,96 @@
 # mcview
 
-**Structural understanding of a codebase, computed in seconds, for whoever has to change it
-without having read it.**
+Structural analysis of a codebase, computed from today's AST. Built for agents and people who
+have to change code they have not read.
 
-Copy one directory, write one `.toml`. No build, no package, no dependencies on the main
-path.
+It answers in seconds what otherwise costs an afternoon of reading — and every number ships
+with what it does *not* claim. One directory, one `.toml`, no dependencies on the main path.
+Python and TypeScript.
 
-```bash
-mcview/mcview.py --orient "Retrieval" --flow    # what is this area, how do you get in,
-                                                # where does it go, what does it cross first
 ```
+ORIENTATION — Persistence   (module)
+2 files · 16 symbols · 5.38% of the project's mass
 
----
+cohesion 0.61
+(complete graph; --hierarchy measures it without hubs — not interchangeable)
 
-## The problem it was built for
-
-An agent —or a person on their first day— is asked to change something. What it needs before
-writing a line is not the file: it is the *shape*. Who calls this. What already crosses it.
-Whether something like it already exists. Where it stops being traceable.
-
-Today that comes from two places and both fail:
-
-- **Documentation rots.** It describes the system as it was when somebody wrote it down.
-- **Reading the code doesn't scale.** Five files to answer one question, and the answer is
-  only as good as which five you happened to pick.
-
-mcview computes it from **today's AST**, so it cannot be out of date by construction. It
-answers in seconds what would otherwise cost an afternoon of reading, and every number comes
-with what it does *not* claim attached.
-
-### And the second half: connections
-
-A component is protected by a test — you call it and look at what it returns. **A connection
-is not.** "Every request crosses the tenant resolver before touching the database" is not a
-call: it is a property of *every path*, and there is no way to write it as an assertion about
-a function.
-
-That is why repositories tend to have their components secured and their connections not.
-mcview makes a connection contract verifiable with one primitive:
-
-> Remove the nodes that guarantee the connection and ask whether the sink is still reachable.
-> If it is, **that path is the bypass** — and it is its own evidence.
-
-```bash
-mcview/mcview.py --propose "api/routers/" "store/client.py"   # where a lock is worth putting
-mcview/mcview.py --locks                                      # run the declared contracts
+── TEMPERATURE ────────────────────────────────────────────
+  ALIVE_PRODUCT            12
+  ALIVE_PRODUCT_WEAK        2
+  TEST_ONLY                 1
+  DEAD_CANDIDATE            1
+  cold (mass ~0)            2   referenced, but the system does not go through them
 ```
-
----
-
-## As an MCP server
-
-The consumer of this tool is an agent, and until now it reached the tool through a *skill* —
-prose telling it which command to run. A skill is a prompt: something that has to be read,
-remembered and not gotten wrong. A tool schema cannot be invoked wrong.
-
-```bash
-# global — one server for every repository
-pipx install git+https://github.com/mcalza96/mcview
-claude mcp add --scope user mcview -- mcview --mcp
-```
-
-```jsonc
-// or per project, pinned to the copy in that repo — .mcp.json at its root
-{ "mcpServers": { "mcview": {
-    "type": "stdio", "command": "python3",
-    "args": ["${CLAUDE_PROJECT_DIR}/mcview/mcview.py", "--mcp"] } } }
-```
-
-Pick one, not both: the same server registered twice is two versions that can drift, and the
-project scope silently wins. Global is a snapshot of whatever was installed —
-`pipx install --force git+…` to move it; per-project follows that repo's copy.
-
-**Pass `projectPath` when it is global.** One process serves many repositories, and without it
-the answer depends on the directory the client happened to launch it from — measured, the same
-call returns 6,186 symbols from the project root and "no mcview.toml" from `/tmp`.
-
-Ten tools, by intent rather than by flag: `mcview_orient` (the primary one), `mcview_process`,
-`mcview_route`, `mcview_exists`, `mcview_map`, `mcview_status`, `mcview_locks`, `mcview_seams`,
-`mcview_diff`, `mcview_init`. Zero dependencies — MCP stdio is newline-delimited JSON-RPC, so
-it is written against the stdlib and the tool stays a directory you copy.
-
-**Every result carries a `caveat` field, and that is not decoration.** Each number here is
-printed next to what it does *not* claim; a tool returning bare JSON would strip that, and
-`mass: 16.42` with no qualifier reads as importance when it is structural centrality —
-*measured* not to predict execution. Hand a model a number with no caveat and it will supply
-one of its own. The reading manual travels too, in the `instructions` field of the handshake.
-
-The expensive views are deliberately **not** tools: full duplicate analysis, `--k`,
-`--hierarchy`, `--islands` and the multi-view comparison run in minutes on a large repo, and a
-call that blocks for minutes is a call nobody makes twice. They stay on the CLI. Everything
-that is a tool measures ~2.5 s cold and is cached afterwards, invalidated by the newest mtime
-in the tree — because a long-lived server over code that changes underneath it is exactly how
-an index starts lying.
 
 ---
 
 ## What it answers
 
-| question | command |
-|---|---|
-| **What is this area and how does it work?** | `--orient <target> --flow` |
-| **What happens, and in what order?** | `--sequence <target> --to <destination>` |
-| **How is the system distributed?** | `--atlas` (interactive 2D map) |
-| **What can a message traverse, across repos?** | `--route "<name>"` |
-| **Does this connection still hold?** | `--locks` · `--propose` |
-| What code is unused? | census (`mcview.py`) |
-| What is duplicated? | census · `--exists <file>` |
-| Where does the system go? | `--map` (PageRank) |
-| Is this well modularized? | `--k` · `--hierarchy` · `--islands` |
-| What did this change do to the repo? | `--diff <ref>` |
-| What actually runs? | `--runtime` (probe census) |
-| What do I have to restart? | `--services` |
-| How do my repositories join? | `--seams` · `--bridges` |
+| question | command | MCP tool |
+|---|---|---|
+| What is this area and how does it work? | `--orient <target> --flow` | `mcview_orient` |
+| What happens, and in what order? | `--sequence <target> --to <dest>` | `mcview_process` |
+| What can a request traverse, across repos? | `--route "<name>"` | `mcview_route` |
+| Does this already exist? | `--exists <file>` | `mcview_exists` |
+| Where does the system go? | `--map` | `mcview_map` |
+| What code is unused? | `--status DEAD_CANDIDATE` | `mcview_status` |
+| Does this connection still hold? | `--locks` · `--propose <a> <b>` | `mcview_locks` |
+| How do my repositories join? | `--seams` · `--bridges` | `mcview_seams` |
+| What did this change do to the repo? | `--diff <ref>` | `mcview_diff` |
+| What do I have to restart? | `--services` | — |
+| Is this well modularized? | `--k` · `--hierarchy` · `--islands` | — |
+| What actually runs? | `--runtime` | — |
 
-All of them accept `--json`, which is the point: the output is meant to be handed to an agent
-instead of sending it off to explore.
+Everything accepts `--json`.
 
 ---
 
-## Two things it does that a code index does not
-
-**It measures with a random walk, not with a count.** A walker starts at the *declared entry
-points* and follows references; where it spends its time is the usage mass (personalized
-PageRank), and where it gets trapped are the modules (Markov clustering). Same chain, two
-questions. A helper called once from the heart of the system weighs more than one called
-twenty times from a cold corner — a flat count says the opposite.
-
-**It parses the AST instead of using an index.** An index can have *silent holes*: calls that
-show up neither as resolved nor as unresolved. A silent hole is worse than an unresolved
-reference — the unresolved one is visible and can be rescued; the missing one is
-indistinguishable from "unused". Measured against a real index over the same code: **112,476
-of our own edges against 9,770 of theirs (11.5×)**.
-
----
-
-## Quickstart
-
-Two ways in, and the first one is the primary:
+## Install
 
 ```bash
-# A. copy the directory — no install, no build, works offline, and it is what the
-#    skills and the portability lock document and verify
-git clone https://github.com/mcalza96/mcview && cp -r mcview/ /path/to/your-project/
-
-# B. install from git — nothing to clone, `mcview` lands on your PATH
-uvx --from git+https://github.com/mcalza96/mcview mcview --map
+# as a command
 pipx install git+https://github.com/mcalza96/mcview
+pipx inject mcview tree_sitter tree_sitter_typescript   # only for TypeScript projects
+
+# or copy the directory — no install, works offline
+git clone https://github.com/mcalza96/mcview && cp -r mcview/ /path/to/your-project/
 ```
 
-Both models coexist because the entrypoint does the same thing either way: `mcview.py` puts
-its own directory on `sys.path` and lets `_layers` mount the rest, so the flat imports resolve
-whether the directory was copied or installed. **Python 3.11+, zero dependencies on the main
-path.** It is not on PyPI: the name is taken there by an unrelated project.
+Requires Python **3.11+**. The main path has zero dependencies; `numpy`/`scipy` are needed only
+by `--modules`, `--k`, `--hierarchy`, `--islands` and `--views`, and `tree_sitter` only by
+TypeScript projects. Each says what to install and exits.
 
-The rest of this README, and every command block in the four skills, is written for **A** —
-`mcview/mcview.py …`. With **B**, drop the path and use `mcview …`.
+Copying the directory is the model the four bundled skills and the portability check document
+and verify; the packaged command exists so you do not have to clone. Both work — the entrypoint
+puts its own directory on `sys.path` either way.
+
+### As an MCP server
 
 ```bash
-# 1. copy the directory into your project
-cp -r mcview/ /path/to/your-project/
-
-# 2. derive a starter config from what the project already declares
-cd /path/to/your-project
-mcview/mcview.py --init        # writes mcview.toml — then READ it
-
-# 3. run it
-mcview/mcview.py                    # the census
-mcview/mcview.py --map              # where the system goes
-mcview/mcview.py --orient <area>    # the brief for one area
+claude mcp add --scope user mcview -- mcview --mcp
 ```
 
-**Declaring the roots is half the work.** Without them, reachability declares the entire
-project dead — and that is the one thing `--init` cannot decide for you, because which entry
-points matter is a statement about the project, not about the file system.
+Ten tools, listed above. When the server is global, pass `projectPath`: one process serves many
+repositories, and without it the answer depends on the directory the client launched it from.
 
-What it *can* do is stop you writing it from memory. It reads what the project already
-declares —`[project.scripts]`, the `Dockerfile` `CMD`, the decorators that register into a
-dispatch dict, the single `uvicorn.run`— and writes each root **with where it came from**:
+Not on PyPI — the name is taken there by an unrelated project.
+
+---
+
+## Getting started
+
+```bash
+cd your-project
+mcview --init      # derives mcview.toml from what the project already declares
+mcview             # the census
+mcview --map       # where the system goes
+```
+
+**Declaring the roots is half the work, and it is the only mandatory part.** Without them,
+reachability declares the whole project dead. `--init` will not decide which entry points
+matter — that is a statement about the project — but it stops you writing them from memory. It
+reads `[project.scripts]`, the Dockerfile `CMD`, the decorators that register into a dispatch
+dict and the process entrypoints, and writes each root with its provenance:
 
 ```toml
 [roots]
@@ -185,152 +98,82 @@ dispatch dict, the single `uvicorn.run`— and writes each root **with where it 
 decorators = ["mcp_tool"]
 #   candidate — `mcp_prompt`: 4 uses but only in 1 file. One file is not enough
 #   to declare a registry; look at it.
+route_methods = ["post", "get", "delete", "patch", "put"]
+route_objects = ["router", "app"]
+dirs = ["entrypoints/worker.py", "entrypoints/main.py", "tests/"]
+product_dirs = ["entrypoints/worker.py", "entrypoints/main.py"]
 ```
 
-Measured against a config a human had written by hand for a 740-file backend: `--init`
-derived the two large root classes **exactly** (169 tools, 171 routes) and the same 6,186
-symbols. What it did not declare, it flagged as candidates with the file to look at — and the
-whole difference in the census was those flagged roots. It proposes; you decide.
+Checked against a config a human had written by hand for a 740-file backend, `--init` derived
+the two large root classes exactly (169 tools, 171 routes) and the same 6,186 symbols. What it
+could not decide it flagged as candidates, and the whole census difference was those flagged
+roots.
 
-It never overwrites an existing `mcview.toml` (use `--force`), and `--init --json` shows what
-it would derive without writing anything.
+If it finds no registration decorators, no routes and no entrypoint, it says so and falls back
+to whole directories — which is the expensive mistake. On one 448-file project, declaring
+directories gave 649 roots and the flow stopped discriminating: when everything is an entrance,
+"how do you get in" has no answer.
 
-See [`skills/mcview-install`](skills/mcview-install/SKILL.md) for the four checks that tell you
-whether the yardstick is broken before you believe a number.
+### Before believing a number
 
-Supports **Python** (stdlib `ast`) and **TypeScript/TSX** (`tree_sitter`, optional).
-Requires Python **3.11+** — that is where `tomllib` became stdlib, which is what keeps the
-main path at zero dependencies.
+1. **Root count against file count.** If they are close, you declared directories.
+2. **Is `DEAD_CANDIDATE` plausible?** Hundreds in a healthy repo means missing roots — usually a
+   registration decorator. Zero in an old repo means too many.
+3. **Does the map look like your system?** If something marginal tops it, ask what an *edge*
+   means in this codebase before reading the mass.
+4. **Ask it something whose answer you already know.**
 
 ---
 
-## The design decisions, and what each one bought
+## Reading the output
 
-### The core has no dependencies
+### "Alive" is not a boolean
 
-| what | needs | if missing |
-|---|---|---|
-| census, duplicates, `--map`, `--risk`, `--diff`, `--exists`, the gate | **nothing** — stdlib | — |
-| **`--orient`, `--flow`, `--sequence`, `--atlas`, `--mermaid`, `--html`** | **nothing** — stdlib | — |
-| `--modules`, `--k`, `--hierarchy`, `--islands`, `--views` | `numpy`, `scipy` | it says what to install and exits |
-| any TypeScript project | `tree_sitter`, `tree_sitter_typescript` | it says what to install and exits |
-
-That the main path runs on the bare stdlib is **verified by blocking the modules**, not by
-reading the imports. It is what makes installing the tool a matter of copying a directory.
-
-### The config does not live inside the tool
-
-While `mcview.toml` sat inside `mcview/`, extracting the module into another repository
-carried the previous project's configuration with it: the promise that "everything specific
-lives in a `.toml`" was true on paper and false in the file tree. The config is now
-**discovered** by walking up from the current directory.
-
-### Layers are directories, not packages
-
-```
-your-project/
-  mcview.toml         ← the only thing you write
-  mcview/
-    mcview.py         ← the CLI
-    gate.py           ← the pre-write hook
-    extraction/       ← the ONLY layer that looks at code: config, factory, python, typescript
-    graph/            ← reachability, paths, contracts, Markov, the cached index, the weave
-    views/            ← one question each; none of them looks at the code again
-    render/           ← text, mermaid, canvas, page
-    selfcheck/        ← the locks that protect the tool itself
-    skills/           ← the manual for the agent, travels inside
-    vendor/           ← the diagram renderer, travels inside
-  src/…
-```
-
-They are mounted on `sys.path` (`_layers.py`), so imports stay flat and splitting the tree did
-not touch a single one of the 35. The price, stated up front: two layers cannot hold a file
-with the same name — `_layers.collisions()` verifies that rather than trusting it. A real
-package would force `python -m mcview` and break the "copy the directory and go" promise.
-
-### The skills travel inside
-
-```bash
-ln -s ../../mcview/skills/orient-session .claude/skills/orient-session
-ln -s ../../mcview/skills/mcview-repo    .claude/skills/mcview-repo
-```
-
-[`orient-session`](skills/orient-session/SKILL.md) is the reading manual: what each number
-means and what it does NOT assert. [`mcview-repo`](skills/mcview-repo/SKILL.md) is the
-measuring and cleaning manual. [`mcview-process`](skills/mcview-process/SKILL.md) is for
-understanding a process end to end. [`mcview-install`](skills/mcview-install/SKILL.md) is for
-setting it up in a new repository.
-
-Leaving them outside would be extracting the engine and abandoning the manual — which is the
-half that keeps somebody from reading a ranking as a conclusion.
-
----
-
-## How it works: three steps, and after that everything is a view
-
-Each view answers a different question, but **none of them looks at the code again**: they all
-read the same three structures. That is why a defect in one step shows up in every view at
-once, and why fixes go to the step, not to the view.
-
-```mermaid
-flowchart LR
-  SRC["source code"] --> INV["1 · INVENTORY<br/><i>what counts as a node</i>"]
-  INV --> SCP["2 · SCOPE<br/><i>which name is local</i>"]
-  SCP --> REF["3 · REFERENCES<br/><i>what points to what</i>"]
-  REF --> G(["graph:<br/>symbols + edges"])
-  G --> V1["liveness<br/><i>reachability</i>"]
-  G --> V2["mass<br/><i>PageRank</i>"]
-  G --> V3["modules<br/><i>MCL / Q</i>"]
-  G --> V4["flow<br/><i>paths</i>"]
-  SRC -.-> DUP["duplicates<br/><i>AST fingerprint</i>"]
-```
-
-| step | decides | if it gets it wrong |
-|---|---|---|
-| **inventory** | what counts as a symbol | nodes that are not code units absorb mass |
-| **scope** | whether a read is local or a reference | fabricated edges, and paths that do not exist |
-| **references** | who points to whom | everything above |
-
----
-
-## What it returns: grades of evidence, not a boolean
-
-**"Alive" is not yes/no.** Collapsing it to a boolean overestimated liveness by a factor of
-eight in the first project measured.
+Collapsing it overestimated liveness by a factor of eight on the first project measured.
 
 | status | means |
 |---|---|
-| `ALIVE_PROVEN` | it ran at runtime — never touch |
-| `ALIVE_PRODUCT` | reachable from a real root, by an unambiguous name |
-| `ALIVE_PRODUCT_WEAK` | reachable **only** via an ambiguous name (homonyms) |
-| `TEST_ONLY` | alive purely because a test or a script touches it |
+| `ALIVE_PROVEN` | ran at runtime |
+| `ALIVE_PRODUCT` | reachable from a real root, unambiguous name |
+| `ALIVE_PRODUCT_WEAK` | reachable **only** through an ambiguous name (homonyms) |
+| `TEST_ONLY` | alive only because a test or script touches it |
 | `ALIVE_BY_NESTING` | alive only by being nested inside something alive |
 | `DEAD_CANDIDATE` | no references at all |
 
-`ALIVE_PRODUCT_WEAK` and `TEST_ONLY` are where the entropy lives: code nobody deletes because
+`ALIVE_PRODUCT_WEAK` and `TEST_ONLY` are where entropy accumulates: code nobody deletes because
 the graph says it is used, when what holds it up is a homonym or its own test.
 
-### Safety contract
+### What each number does not claim
 
-**`DEAD_CANDIDATE` is not a deletion order.** It is a hypothesis with no static evidence of
-use. Confirming it requires runtime or manual verification. The guarantee lives in what the
-tool returns, not in the prompt of whoever invokes it.
+These travel with the output — printed on the CLI, and as a `caveat` field on every MCP result.
+Each was written after a measurement contradicted a reading somebody had already made.
 
-The whole chain is **fail-open**: when in doubt, alive. False "dead" is the failure mode that
-hurts; false "alive" only costs a review.
+| number | what it does **not** say |
+|---|---|
+| **mass** | Not importance, not real frequency: structural centrality. Measured against a runtime probe it does **not** predict execution (AUC 0.506). Plumbing tops the map. |
+| **`DEAD_CANDIDATE`** | Not a deletion order. A hypothesis with no *static* evidence of use. Names reached only through a string — a registry, `mock.patch`, config dispatch — are invisible to it. |
+| **flow / paths** | Structure, not execution. A path here may never be walked; an absent one may exist through dynamic dispatch. The bias is toward the false negative: it never invents a path. |
+| **sequence** | The *written* order. A call inside an `if` appears even if it never runs; a dynamically dispatched one does not appear even if it always runs. |
+| **cohesion** | Below 0.15 does not mean "split it" — it means it is not a unit, it is crosscutting infrastructure. `--hierarchy` measures it without hubs and gives a different number. |
+| **runtime** | Confirms, never rules out. "Not observed" may mean it sits behind an `if`, fell outside the window, or ran in a process with no probe. |
+| **`--diff`** | Typed signals, never a single score. Only `net_symbols` is validated against history; change heat and concentration are not. |
+| **duplicates** | Same shape is not the same responsibility. Ask what would happen if *one* copy diverged. |
+
+The whole chain is fail-open: when in doubt, alive. False "dead" costs something; false "alive"
+costs a review.
 
 ---
 
 ## Locking a connection
 
-Three contracts, one idea. Remove what guarantees the connection and ask whether the sink is
-still reachable.
+A component is protected by a test — you call it and check what it returns. A connection is
+not: *"every request crosses the tenant resolver before touching the database"* is a property of
+every path, and there is no way to write it as an assertion about a function. Repositories tend
+to have their components secured and their connections not.
 
-| contract | what it demands |
-|---|---|
-| `crosses G` | interposition: the data always goes through G |
-| `requires G` | precondition: someone on the path called G first |
-| `cannot_reach` | isolation: no path exists |
+One primitive: **remove what guarantees the connection and ask whether the sink is still
+reachable. If it is, that path is the bypass** — and it is its own evidence, verifiable by
+reading three functions.
 
 ```toml
 [[locks]]
@@ -340,144 +183,146 @@ dst      = "store/client.py"
 requires = "get_tenant_id"
 ```
 
-**`requires` is not `crosses` under another name.** A guard is not *on* the path: it is called
-BEFORE, as a precondition with an early return, so in the graph it is a **sibling**. Treating
-it as an interposition —which is what a dominator does— produced **64 false bypasses** on a
-frontend whose routes were in fact protected.
+| contract | demands |
+|---|---|
+| `crosses G` | interposition — the data always goes through G |
+| `requires G` | precondition — someone on the path called G first |
+| `cannot_reach` | isolation — no path exists |
 
-The verdict is exact, not sampled: it is proven by removal, and the finding *is* the bypass
-path, so it can be verified by reading three functions.
+`requires` is not `crosses` renamed. A guard is not *on* the path: it is called before, as a
+precondition with an early return, so in the graph it is a **sibling**. Treating it as an
+interposition — what a dominator does — produced 64 false bypasses on a frontend whose routes
+were in fact protected.
 
-**Reading an empty result.** `--propose` can return zero candidates, and that is not "I found
-nothing": it is "I found that nothing is interposed". Protection is not missing — the
-chokepoint to put it on is missing, and building one is a design decision, not a cleanup.
-
----
-
-## The pre-write gate
-
-Detecting means cleaning up afterwards; the gate is about it not happening. As a `PreToolUse`
-hook on `Write|Edit`, it queries the index before the code reaches disk and warns if that
-already exists. It costs ~60 ms.
-
-**It never blocks and it fails open** — any error or missing index lets the write through. A
-hygiene tool cannot stop the work.
-
-```bash
-mcview/mcview.py --reindex             # build the cache
-mcview/mcview.py --exists file.py      # does this already exist?
-```
-
-The default threshold (0.75, overridable with `MCVIEW_GATE_THRESHOLD`) **loses recall on
-purpose**: at 0.55 it would catch more real duplication but would fire on 58% of writes, and a
-gate that always shouts becomes invisible within a week.
+Verdicts are exact, not sampled. `--propose <a> <b>` ranks candidates by mass and emits the TOML
+block; an empty result means nothing is interposed, so there is no chokepoint to put a guarantee
+on — building one is design, not cleanup.
 
 ---
 
 ## Crossing the repository boundary
 
-**The seam between projects is made of STRINGS, not symbols.** A gateway does not import a
+**The seam between projects is made of strings, not symbols.** A gateway does not import a
 function from the backend: it hits a route and asks for a tool by name. No call graph crosses
-that, and no tool that looks at a single repo sees it.
+that.
 
-```bash
-mcview/mcview.py --seams          # this project's literals
-mcview/mcview.py --bridges        # joins every mcview*.toml in the workspace
-mcview/mcview.py --atlas --workshop
-mcview/mcview.py --route "<name>" # from A to B, across repositories
-```
+Two relations that are not the same:
 
-Two relations that are **not the same**, and confusing them is the expensive mistake:
-
-- **call** — one project writes the other's identifier. Listed with the exact line on both
-  sides.
-- **shared state** — two projects touch the same table **without ever calling each other**. It
+- **call** — one project writes the other's identifier. Listed with the exact line on both sides.
+- **shared state** — two projects touch the same table without ever calling each other. It
   appears in no call graph, and it is usually where the authorization surface lives.
 
-Routes are the hard case: a route is assembled across three files (`APIRouter(prefix=…)` + the
-`include_router` of whoever mounts it + the decorator's literal). `route_prefixes` follows that
-chain through the imports and reconstructs **158 of 158**, verified against routes known in
-advance.
+Routes are the hard case: a route is assembled across three files (`APIRouter(prefix=…)`, the
+`include_router` that mounts it, and the decorator's literal). `route_prefixes` follows that
+chain through the imports and reconstructed 158 of 158 on the reference project.
+
+---
+
+## How it works
+
+Three steps produce the graph; every view reads it and none looks at the code again. A defect in
+one step therefore appears in every view at once, which is why fixes go to the step.
+
+```mermaid
+flowchart LR
+  SRC["source"] --> INV["1 · INVENTORY"] --> SCP["2 · SCOPE"] --> REF["3 · REFERENCES"]
+  REF --> G(["symbols + edges"])
+  G --> V1["liveness"]
+  G --> V2["mass · PageRank"]
+  G --> V3["modules · MCL"]
+  G --> V4["flow · paths"]
+  SRC -.-> DUP["duplicates · AST fingerprint"]
+```
+
+A random walker starts at the declared entry points and follows references. Where it spends its
+time is the usage mass (personalized PageRank); where it gets trapped are the modules (Markov
+clustering). Same chain, two questions. A helper called once from the heart of the system
+outweighs one called twenty times from a cold corner — a flat count says the opposite.
+
+Paths and locks run on **unambiguous edges only**. On the reference project the complete graph
+has 124,531 edges against 8,058 unambiguous ones, and with the former everything reaches
+everything: the first attempt reported 351 of 402 roots "reaching" one subsystem, listing
+`client` and `get` from test files as what the flow crosses.
+
+### Why the AST and not a code index
+
+An index can have *silent holes*: calls that appear neither as resolved nor as unresolved. A
+silent hole is worse than an unresolved reference — the unresolved one is visible and can be
+rescued; the missing one is indistinguishable from "unused". Measured against a real index over
+the same code: 112,476 edges against 9,770.
+
+---
+
+## Design notes
+
+| decision | why |
+|---|---|
+| **No dependencies on the main path** | Verified by blocking the optional modules, not by reading imports. It is what makes installing a matter of copying a directory. |
+| **Config lives outside the tool** | While `mcview.toml` sat inside `mcview/`, extracting the module carried the previous project's roots with it. It is now discovered by walking up from the current directory. |
+| **Layers are directories, not packages** | Mounted on `sys.path`, so imports stay flat. A real package forces `python -m mcview` and breaks the copy model. The price: two layers cannot share a file name — `_layers.collisions()` checks that rather than trusting it. |
+| **The skills travel inside** | `orient-session`, `mcview-repo`, `mcview-process`, `mcview-install`. Shipping the engine without the manual is what lets somebody read a ranking as a conclusion. |
+| **Expensive views are not MCP tools** | Full duplicate analysis, `--k`, `--hierarchy`, `--islands` and `--views` run in minutes on a large repo. A call that blocks for minutes is one nobody makes twice. |
+
+Six self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
+config key drifting from its reader — the view returns empty, which reads as a finding — and
+encapsulation eroding until the directory no longer copies cleanly. The latter runs the CLI as a
+subprocess from a temporary directory, because importing the modules proves nothing when
+`sys.path` and `cwd` are already contaminated.
+
+---
+
+## The pre-write gate
+
+A `PreToolUse` hook on `Write|Edit` that queries the index before code reaches disk and warns if
+it already exists. ~60 ms. It never blocks and fails open — any error or missing index lets the
+write through.
+
+```bash
+mcview --reindex          # build the cache
+mcview --exists file.py
+```
+
+The default threshold (0.75, `MCVIEW_GATE_THRESHOLD`) loses recall deliberately: at 0.55 it would
+catch more real duplication but fire on 58% of writes, and a gate that always shouts becomes
+invisible.
 
 ---
 
 ## The runtime census
 
-Where code is resolved BY NAME —plugins, platforms, dispatch tables, an agent's tools— **no
-static analysis reaches**, and there a low number does not mean "unused" but "I cannot see it".
+Where code is resolved by name — plugins, platform adapters, dispatch tables, an agent's tools —
+no static analysis reaches, and a low number there means "I cannot see it", not "unused".
 
-The probe does not live here: it belongs to the measured project, and mcview only READS the
-JSONL it leaves in `<root>/.mcview/`. It uses `sys.monitoring` (PEP 669, py3.12+) and the
-callback returns `DISABLE`, which turns monitoring off *for that code object* after the first
-hit — each function costs once and zero thereafter. **It is not a profiler, it is a census**,
-and it can be left on in a real process. Measured overhead over 3M calls: indistinguishable
-from noise.
+The probe belongs to the measured project, not to the tool; mcview reads the JSONL it leaves in
+`<root>/.mcview/`. It uses `sys.monitoring` (PEP 669, 3.12+) and returns `DISABLE`, which turns
+monitoring off for that code object after the first hit: each function costs once. It is a
+census, not a profiler, and can be left on in a real process — measured overhead over 3M calls
+was indistinguishable from noise.
 
-**The direction is non-negotiable: it only PROMOTES to alive, never demotes to dead.**
-Something not showing up may simply mean it did not run inside the observed window.
+It only promotes to alive, never demotes to dead.
 
-It is not a nicety. A gateway's agent loop measured **0.05% of static mass** — under any
-automatic criterion it would have been the first thing deleted. The runtime census showed
-**50% of its symbols ran**; the static graph simply could not see it.
+Not a nicety: a gateway's agent loop measured 0.05% of static mass — under any automatic
+criterion the first thing to delete. The runtime census showed 50% of its symbols ran. The static
+graph could not see it.
 
 ---
 
-## The locks that protect the tool itself
+## Limits
 
-```bash
-mcview/selfcheck/check_portability.py   # copied to a clean dir, does it still work?
-mcview/selfcheck/check_reach.py         # does the graph respect lexical scope?
-mcview/selfcheck/check_contracts.py     # is the contract primitive right on known graphs?
-mcview/selfcheck/check_blocks.py        # do duplicates still see nested blocks?
-mcview/selfcheck/check_view.py          # do the views still SAY something?
-mcview/selfcheck/check_config_keys.py   # does every .toml key have a reader?
-```
+- **Structure, not execution.** Dynamic dispatch and plugins loaded by name are invisible.
+- **Mass does not predict execution** (AUC 0.506 against a probe).
+- **The optimal partition `--k` returns is not identifiable**: exponentially many have almost
+  equal Q. Q as a scalar compares well; "these are the N modules" does not hold.
+- **It does not see argument filtering.** It finds "reaches the sink without crossing the guard",
+  not "crossed the guard but forgot the tenant filter".
+- **Nested blocks are Python only.** In TypeScript the report says `0 blocks` — not "no
+  duplication inside functions", but "not looked for there".
+- **No external validation** against bugs or maintainability.
+- **Cost:** ~7 s over 5,500 symbols, ~2 min over 42,000. A real-time gate would need incremental
+  analysis.
 
-The last one exists because of the worst failure mode this tool can have — **the one that does
-not crash**. When a config key and the code that reads it drift apart, nothing raises: the
-reader gets its default, the view runs, and it returns an empty list. And an empty list from a
-detector reads exactly like "there is nothing here", which is a finding.
-
-`check_portability` exists for the same reason in the other direction: **encapsulation erodes
-silently**. Nobody notices until they try to extract the tool. It copies `mcview/` into a
-temporary directory with a synthetic project and runs the CLI **as a subprocess** — importing
-the modules would prove nothing, because `sys.path` and `cwd` are already contaminated.
-
----
-
-## Known limits
-
-- **It is structure, not execution.** A path in the graph may never be walked; an absent one
-  may exist anyway (dynamic dispatch, plugins by name). The bias is toward the false negative:
-  it never invents a path.
-- **Mass does not predict execution.** Measured against a probe: AUC **0.506** — 0.50 is
-  predicting nothing. It orders by *structural centrality*, which is exactly what it says and
-  nothing more.
-- **The optimal partition `--k` returns is not identifiable**: there are exponentially many
-  with almost equal Q. Q as a scalar compares well; "these are the N modules" does not hold.
-- **It does not see argument filtering.** It finds "reaches the sink without crossing the
-  guard", not "crossed the guard but forgot the tenant filter".
-- **Nested blocks are Python only.** In TypeScript the report says `0 blocks`, which is correct
-  but easy to misread: it does not mean there is no duplication inside functions, it means it
-  is not looked for there.
-- **None of these metrics has external validation** against bugs or maintainability.
-- **Cost:** ~7 s over 5,500 symbols; ~2 min over 42,000. A real-time gate would need
-  incremental analysis, which is not there today.
-
----
-
-## The numbers in this README
-
-There are two classes, and only one can drift:
-
-- **Dated anecdotes** — "64 false bypasses", "112,476 against 9,770", "AUC 0.506". They
-  happened. They do not change with a commit, and they are what makes the lesson credible.
-  They get quoted.
-- **Current state of a repo** — how many symbols there are, what percentage is `TEST_ONLY`.
-  Those change with every merge. They are not quoted from memory: they are recomputed.
-
-It is the same rule that makes the tool exist, applied to its own manual. And it is not
-theoretical: this README once cited "1300 symbols" when the repo already had 5,790.
+Dated measurements in this file are quoted because they happened and do not change. Anything
+describing the current state of a repository is not quoted from memory — it is recomputed.
 
 ---
 

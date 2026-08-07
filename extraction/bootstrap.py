@@ -338,12 +338,13 @@ def render(root: str, findings: dict) -> str:
             L.append(f"#   {rel} — {why}")
         wrote_real_root = True
 
-    dirs, product = [], []
-    for d in findings["entrypoints"][:10]:
-        parent = os.path.dirname(d[0])
-        if parent and parent + "/" not in dirs:
-            dirs.append(parent + "/")
-            product.append(parent + "/")
+    # THE ENTRYPOINT FILES, not their parent directory. `dirs` matches by prefix, so a file
+    # path works — and that difference is the whole point. Deriving the parent looked tidier
+    # and produced `dirs = ["src/"]` on a flat project, which makes EVERY module in the source
+    # root a root: measured on a 3-symbol fixture, dead code came out ALIVE_PRODUCT. It is the
+    # exact mistake this module's own header warns about, committed by this module.
+    dirs = [rel for rel, _ in findings["entrypoints"][:10]]
+    product = list(dirs)
     for t in findings["test_dirs"]:
         if t + "/" not in dirs:
             dirs.append(t + "/")          # tests are roots, but NOT product

@@ -318,6 +318,8 @@ class Project:
         # symbol → names bound in its scope (its own + inherited from the enclosing ones).
         # A read of one of those names does NOT reference the project's homonymous symbol.
         self._locales: dict[str, set[str]] = {}
+        # `{archivo: {alias: nombre_real}}` — ver `_analyze`.
+        self._alias: dict[str, dict[str, str]] = {}
         self._arboles: dict[str, ast.AST] = {}
         self._build()
 
@@ -404,6 +406,25 @@ class Project:
         is_root_module = self.cfg.is_root_dir(rel)
         index = {s.name: s.id for s in self.by_file[rel]}
 
+        # ALIASED IMPORTS, in their own pass and before resolving anything, because a use can
+        # appear earlier in the walk than the import that explains it.
+        #
+        # `from x import iniciar as _iniciar_sonda` makes the call site read `_iniciar_sonda()`,
+        # a name no symbol in the project carries — so the reference resolved to nothing and the
+        # edge simply did not exist. It is not a homonym problem, it is the opposite: an alias is
+        # an UNAMBIGUOUS binding to one real symbol, and it was being thrown away.
+        # Measured on the reference project: 111 aliased imports and 324 uses of them.
+        # Found by the external-index lock, which reported one missing call after an unrelated
+        # change and turned out to be pointing at a documented limitation nobody had sized.
+        alias: dict[str, str] = {}
+        for n in ast.walk(tree):
+            if isinstance(n, (ast.Import, ast.ImportFrom)):
+                for al in n.names:
+                    if al.asname and al.asname != al.name:
+                        alias[al.asname] = al.name.rsplit(".", 1)[-1]
+        if alias:
+            self._alias[rel] = alias
+
         self._mark_branches(rel, tree)
         for n in ast.walk(tree):
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -471,6 +492,13 @@ class Project:
     def _refer(self, rel: str, line: int, name: str, fuerza: float = 1.0,
                  lexico: bool = True):
         targets = self.by_name.get(name)
+        if not targets:
+            # The name may be an alias. Resolved AFTER the direct lookup on purpose: if a real
+            # symbol carries the alias's name, that symbol wins — the alias is the fallback,
+            # never an override, so this can only ADD edges that were missing and never divert
+            # one that already resolved.
+            real = self._alias.get(rel, {}).get(name)
+            targets = self.by_name.get(real) if real else None
         if not targets:
             return                       # external symbol (stdlib, dependency)
         source = self._owner(rel, line)

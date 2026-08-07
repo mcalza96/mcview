@@ -232,9 +232,16 @@ def main():
         n_ent = len(findings["entrypoints"])
         print(f"\n  wrote {target}")
         print(f"  {findings['language']} · {findings['n_py']} .py · {findings['n_ts']} .ts/.tsx")
+        n_conv = len(findings.get("convention_roots") or ())
         print(f"  {n_dec} registration decorator(s) · {len(findings['route_methods'])} route "
-              f"method(s) · {n_ent} entrypoint(s)")
-        if not (n_dec or n_ent or findings["route_methods"]):
+              f"method(s) · {n_ent} entrypoint(s)"
+              + (f" · {n_conv} loaded by framework CONVENTION" if n_conv else ""))
+        # The convention roots count. Leaving them out of this test told a project whose roots
+        # are ALL conventional —a filesystem-routed frontend, 31 of them— that "nothing real was
+        # found", and pointed it at the expensive mistake it had just avoided. The file it had
+        # written said the opposite two lines up. A summary that contradicts its own output is
+        # worse than no summary: the file is right and nobody reads past the warning.
+        if not (n_dec or n_ent or n_conv or findings["route_methods"]):
             print("\n  ⚠ nothing real was found: it fell back to whole directories, which is")
             print("    the expensive mistake. Open the file — it says what to do instead.")
         else:

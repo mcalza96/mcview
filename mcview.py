@@ -117,6 +117,8 @@ def main():
                                      "by walking up from the current directory")
     ap.add_argument("--project", help="shortcut: uses `mcview.<name>.toml` from the root")
     ap.add_argument("--json", action="store_true", help="structured output")
+    ap.add_argument("--mcp", action="store_true",
+                    help="run as an MCP server over stdio (JSON-RPC 2.0)")
     ap.add_argument("--init", action="store_true",
                     help="derive a starter mcview.toml from what the project already "
                          "declares (scripts, Dockerfile, registration decorators, routes)")
@@ -205,6 +207,12 @@ def main():
                     help="with --flow: a Mermaid diagram. 'sequence' (default) = the real "
                          "paths merged; 'map' = the lines of work around it")
     args = ap.parse_args()
+
+    # --mcp runs before everything: the server resolves its own config per call, because a
+    # long-lived server can be asked about several projects in one session.
+    if args.mcp:
+        import mcp_server
+        sys.exit(mcp_server.serve())
 
     # --init runs BEFORE config discovery, which is the whole point: it exists for the repo
     # that does not have one yet. Every other path exits here with "could not find

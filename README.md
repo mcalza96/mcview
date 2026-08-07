@@ -49,6 +49,39 @@ mcview/mcview.py --locks                                      # run the declared
 
 ---
 
+## As an MCP server
+
+The consumer of this tool is an agent, and until now it reached the tool through a *skill* —
+prose telling it which command to run. A skill is a prompt: something that has to be read,
+remembered and not gotten wrong. A tool schema cannot be invoked wrong.
+
+```jsonc
+// .mcp.json at your project root
+{ "mcpServers": { "mcview": {
+    "type": "stdio", "command": "python3",
+    "args": ["${CLAUDE_PROJECT_DIR}/mcview/mcview.py", "--mcp"] } } }
+```
+
+Ten tools, by intent rather than by flag: `mcview_orient` (the primary one), `mcview_process`,
+`mcview_route`, `mcview_exists`, `mcview_map`, `mcview_status`, `mcview_locks`, `mcview_seams`,
+`mcview_diff`, `mcview_init`. Zero dependencies — MCP stdio is newline-delimited JSON-RPC, so
+it is written against the stdlib and the tool stays a directory you copy.
+
+**Every result carries a `caveat` field, and that is not decoration.** Each number here is
+printed next to what it does *not* claim; a tool returning bare JSON would strip that, and
+`mass: 16.42` with no qualifier reads as importance when it is structural centrality —
+*measured* not to predict execution. Hand a model a number with no caveat and it will supply
+one of its own. The reading manual travels too, in the `instructions` field of the handshake.
+
+The expensive views are deliberately **not** tools: full duplicate analysis, `--k`,
+`--hierarchy`, `--islands` and the multi-view comparison run in minutes on a large repo, and a
+call that blocks for minutes is a call nobody makes twice. They stay on the CLI. Everything
+that is a tool measures ~2.5 s cold and is cached afterwards, invalidated by the newest mtime
+in the tree — because a long-lived server over code that changes underneath it is exactly how
+an index starts lying.
+
+---
+
 ## What it answers
 
 | question | command |

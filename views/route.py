@@ -47,36 +47,36 @@ def _invert(edges: dict[str, set[str]]) -> dict[str, set[str]]:
 
 def trace(weave, src: str, dst: str) -> dict:
     origin, e1 = weave.resolve(src)
-    target_node, e2 = weave.resolve(dst)
+    sink, e2 = weave.resolve(dst)
     if e1 or e2:
         return {"error": e1 or e2}
 
     edges = weave.strong_edges
-    if _contracts.reaches(edges, origin, target_node) is None:
+    if _contracts.reaches(edges, origin, sink) is None:
         return {"error": f"there is no unambiguous path from «{src}» to «{dst}». "
                          f"If there has to be one, the junction is probably a seam that is "
                          f"not declared in the `.toml` of the project that uses it."}
 
     forward = _reachable(edges, origin)
-    backward = _reachable(_invert(edges), target_node)
+    backward = _reachable(_invert(edges), sink)
     inside = forward & backward
 
     # EXACT chokepoints: tested by removal, the same primitive the lock uses. Not "appears in
     # 45% of a path sample" — it is "without this you do not get there".
-    middle = inside - origin - target_node
+    middle = inside - origin - sink
     chokes = [s for s in middle
-              if _contracts.reaches(edges, origin, target_node, without=frozenset({s})) is None]
+              if _contracts.reaches(edges, origin, sink, without=frozenset({s})) is None]
 
     seams = [c for c in weave.applied_seams
                 if c["from"] in inside and c["to"] in inside]
     return {
         "src": src, "dst": dst,
-        "inside": inside, "origin": origin, "target_node": target_node,
+        "inside": inside, "origin": origin, "sink": sink,
         "symbols": len(inside),
         "projects": sorted({s.split(_weave.SEP)[0] for s in inside}),
         "chokepoints": sorted(chokes, key=lambda s: weave.symbols[s].loc),
         "seams": seams,
-        "camino_mas_corto": _contracts.reaches(edges, origin, target_node),
+        "shortest_path": _contracts.reaches(edges, origin, sink),
     }
 
 
@@ -101,6 +101,6 @@ def report(weave, r: dict) -> str:
             f.append(f"     {c['kind']:5s} {c['literal']:40s} "
                      f"{weave.symbols[c['from']].loc} → {weave.symbols[c['to']].loc}")
     f.append(f"\n  ── ONE CONCRETE PATH ── to verify by reading ──")
-    for s in (r["camino_mas_corto"] or [])[:14]:
+    for s in (r["shortest_path"] or [])[:14]:
         f.append(f"     {weave.symbols[s].loc}")
     return "\n".join(f) + "\n"

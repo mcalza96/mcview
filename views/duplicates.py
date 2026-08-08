@@ -14,6 +14,7 @@ duplication or two deliberately symmetric faces of an API.
 from __future__ import annotations
 
 import hashlib
+import math
 from collections import defaultdict
 
 import core as _core
@@ -55,34 +56,50 @@ def analyze(project, with_blocks: bool = True) -> dict:
     exact = {h: v for h, v in by_fingerprint.items() if len(v) > 1}
 
     # -- Type-3: skeleton n-grams, one representative per fingerprint --
+    #
+    # NOT the naive inverted index. Measured on a 6.3k-symbol repo: n-grams like
+    # `Call ( Name` appear in 2113 of 2116 skeletons, so walking every posting costs
+    # ~324M dict increments to feed a threshold that then discards almost everything.
+    # Prefix filtering (AllPairs) is EXACT for a Jaccard threshold t: if jac(a,b) >= t
+    # then |a∩b| >= t·|b|, so b's prefix — its |b| - ceil(t·|b|) + 1 globally RAREST
+    # grams — must contain at least one gram of a. Index only prefixes (short postings
+    # by construction), probe with the full set, verify survivors with the exact
+    # C-level intersection. Same output, measured 22.3s → under a second.
     unicos = [v[0] for v in by_fingerprint.values()]
-    index, grams = defaultdict(list), {}
-    for i, (s, esq) in enumerate(unicos):
-        g = _ngrams(esq)
-        grams[i] = g
-        for ng in g:
-            index[ng].append(i)
+    t = cfg.jaccard_threshold
 
+    ids: dict[str, int] = {}
+    grams = [{ids.setdefault(ng, len(ids)) for ng in _ngrams(esq)} for _, esq in unicos]
+
+    freq = defaultdict(int)
+    for g in grams:
+        for ng in g:
+            freq[ng] += 1
+
+    index = defaultdict(list)
     pairs = []
     for i, (s_i, esq_i) in enumerate(unicos):
-        candidatos = defaultdict(int)
-        for ng in grams[i]:
-            for j in index[ng]:
-                if j > i:
-                    candidatos[j] += 1
-        for j, comunes in candidatos.items():
+        g_i = grams[i]
+        candidatos = set()
+        for ng in g_i:
+            candidatos.update(index[ng])
+        for j in candidatos:
+            g_j = grams[j]
+            comunes = len(g_i & g_j)
             if comunes < 3:
                 continue
-            union = len(grams[i] | grams[j])
-            if not union:
-                continue
-            jac = comunes / union
-            if jac >= cfg.jaccard_threshold:
+            union = len(g_i) + len(g_j) - comunes
+            if union and comunes / union >= t:
                 s_j, esq_j = unicos[j]
                 pairs.append({
-                    "jaccard": jac, "a": s_i, "b": s_j,
+                    "jaccard": comunes / union, "a": s_j, "b": s_i,
                     "tokens": min(len(esq_i), len(esq_j)) // 10,
                 })
+        # the 1e-9 leans the rounding toward a LONGER prefix: a float ceil that lands
+        # one too high would silently drop true pairs, one too low only costs probes
+        prefijo = len(g_i) - math.ceil(t * len(g_i) - 1e-9) + 1
+        for ng in sorted(g_i, key=lambda x: (freq[x], x))[:max(prefijo, 0)]:
+            index[ng].append(i)
 
     # Rank by duplicated VOLUME, not by similarity: 1.00 over a 10-token `main` is not
     # worth what 0.85 over a 400-line function is.

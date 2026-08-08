@@ -682,6 +682,19 @@ class Project:
                         changed = True
         return alive
 
+    def _alive_fixpoint(self, seed) -> set[str]:
+        """`_close` and `_by_containment` ALTERNATE until nothing grows. One pass of each is
+        not enough: a method is alive only by nesting inside its class, and the module-level
+        helper that ONLY that method calls needs the closure to run again after nesting spoke.
+        Measured on mcview itself: the single pass left 9 of 14 DEAD_CANDIDATE falsely dead,
+        every one of them exactly this shape."""
+        alive = self._close(seed, self.edges)
+        while True:
+            grown = self._close(self._by_containment(alive), self.edges)
+            if grown == alive:
+                return grown
+            alive = grown
+
     def levels(self) -> dict[str, set[str]]:
         todas = set(self.module_refs)
         seed = set(self.roots) | {t for r in todas for t in self.module_refs[r]}
@@ -693,9 +706,9 @@ class Project:
         seed_strong = set(self.roots) | {
             t for r in self.strong_module_refs for t in self.strong_module_refs[r]}
 
-        reachable = self._by_containment(self._close(seed, self.edges))
+        reachable = self._alive_fixpoint(seed)
         no_containment = self._close(seed, self.edges)
-        product = self._close(seed_product, self.edges)
+        product = self._alive_fixpoint(seed_product)
         strong = self._close(seed_strong, self.strong_edges)
 
         dead = set(self.symbols) - reachable

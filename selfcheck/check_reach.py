@@ -62,6 +62,11 @@ def is_real_call(v):
     return helper_called(v)
 
 
+def usa_motor():
+    """The class lives OUTSIDE the roots: only this reference keeps it alive."""
+    return Motor()
+
+
 def by_attribute(obj):
     """A local does NOT shadow an attribute: `obj.helper_by_attribute` is not the bare name."""
     helper_by_attribute = 0
@@ -88,6 +93,20 @@ def uses_comprehension(xs):
     not make the name local in the rest of the function."""
     _ = [helper_called for helper_called in xs]
     return helper_called(1)
+'''
+
+# A file OUTSIDE the roots: its symbols are only alive if a reference reaches them. `Motor`
+# is instantiated from `app/`, `arranca` is alive only by NESTING inside it, and `_bujia` is
+# called only by `arranca` — the exact shape that needs `_close` and `_by_containment` to
+# alternate. One pass of each left 9 of mcview's own symbols falsely DEAD_CANDIDATE.
+FIXTURE_LIB = '''
+class Motor:
+    def arranca(self):
+        return _bujia()
+
+
+def _bujia():
+    return 1
 '''
 
 # `dirs` is compared with `str.startswith` against the relative path, so "." matches nothing
@@ -226,9 +245,11 @@ def main() -> int:
     failures = []
     with tempfile.TemporaryDirectory() as d:
         os.mkdir(os.path.join(d, "app"))
+        os.mkdir(os.path.join(d, "lib"))
         open(os.path.join(d, "mcview.toml"), "w").write(TOML)
         open(os.path.join(d, "app", "target_module.py"), "w").write(FIXTURE_OBJETIVO)
         open(os.path.join(d, "app", "usos.py"), "w").write(FIXTURE_USOS)
+        open(os.path.join(d, "lib", "motor.py"), "w").write(FIXTURE_LIB)
         cfg = _config.load(os.path.join(d, "mcview.toml"))
         p = _factory.make_project(cfg)
         edges = _edges_by_name(p)
@@ -260,6 +281,11 @@ def main() -> int:
         for vivo in ("helper_called", "_internal", "helper_by_attribute"):
             if vivo in dead:
                 failures.append(f"{vivo} became DEAD_CANDIDATE — the filter erased a real edge")
+        # The fixpoint case: alive only through a caller that is itself alive only by nesting.
+        for vivo in ("Motor", "arranca", "_bujia"):
+            if vivo in dead:
+                failures.append(f"{vivo} became DEAD_CANDIDATE — closure and containment "
+                                "must alternate to a fixpoint, not run once each")
 
     ts_failures = _ts_phase()
     ran_ts = ts_failures is not None

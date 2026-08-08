@@ -50,8 +50,8 @@ GLOSA = {
     "ALIVE_PRODUCT": "reachable from a real root, by an unambiguous name",
     "ALIVE_PRODUCT_WEAK": "reachable ONLY via an ambiguous name (homonyms)",
     "ALIVE_NOT_PRODUCT": "reachable, but never from a product root",
-    "ALIVE_BY_NESTING": "alive only by being nested inside something alive",
-    "DEAD_CANDIDATE": "no references at all — a hypothesis, NOT a deletion order",
+    "ALIVE_BY_NESTING": "alive only through nesting (its own, or its only caller's)",
+    "DEAD_CANDIDATE": "unreachable from every root — a hypothesis, NOT a deletion order",
 }
 
 

@@ -44,6 +44,34 @@ The decisions stay with the person. What this moves is the **cost of being disci
 used to mean holding the repo in your head, or trusting documentation that drifted, becomes a
 measurement you can take in one command and cite.
 
+### When you would actually reach for it
+
+Six situations. If none of them is yours, you do not need this tool.
+
+**1 · I have to touch an area I do not know.** What is in there, who uses it, what it depends
+on, what breaks if I change it, and whether something like it already exists. This is the
+common case, and it replaces opening twenty files hoping three are the right ones.
+
+**2 · I am about to write something new.** Does this already exist under another name? A hook
+asks it for you before the write lands, in milliseconds. It is how you avoid adding the third
+function that does the same thing.
+
+**3 · I want to know what happens when something happens.** A user sends a message: what does
+it traverse, in what order, where does it branch, where does it jump to another repository —
+and, if the probe is on, how much of that actually ran. A graph tells you who calls whom; this
+tells you what happens first.
+
+**4 · I have to explain it to somebody who will not read the code.** Diagrams where every box
+and every arrow came from a measurement instead of from what you believe happens. For a
+manager, for someone joining, or for yourself reviewing work an AI produced.
+
+**5 · I want to clean up.** What nothing uses, what is duplicated, whether a file should be
+split, and whether the change you just made added or removed disorder.
+
+**6 · Operational questions.** Which process do I restart if I touch this. How do my
+repositories actually join — through HTTP routes, tool names, shared tables — which is exactly
+where call-graph analysis stops, because the junction is a string, not a call.
+
 ---
 
 ## How it works

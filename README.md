@@ -109,6 +109,7 @@ table below](#what-each-number-does-not-claim).
 
 | question | command | MCP tool |
 |---|---|---|
+| Set this up on a repo nobody measured yet | `--init` | `mcview_init` |
 | What is this area and how does it work? | `--orient <target> --flow` | `mcview_orient` |
 | What happens, and in what order? | `--sequence <target> --to <dest>` | `mcview_process` |
 | Which edges CAN the flow traverse? | `--sequence <target> --all` | — |
@@ -188,9 +189,12 @@ persistent graph so a large repository does not pay the parse on every call — 
 its own and it will be written. It is not written yet because the measurement does not ask for
 it: building the graph costs ~3 s cold on a 6k-symbol repository and every view over it runs
 in milliseconds — and the one place that cost was actually paid per call, the MCP server's
-edit-ask loop, is covered by an in-process per-file facts cache (a warm rebuild after editing
-one file is ~80 ms, measured 37×). That cache dies with the process and keeps zero state on
-disk, which is the line this project does not cross. And the blocker for more languages is not the
+edit-ask loop, is covered by an in-process per-file facts cache. Measured end to end against
+the running server: 3.11 s on the first call, 0.03 s when nothing moved, **0.13 s on the call
+right after editing a file** — which is the one that used to cost the full rebuild. The floor
+is not re-parsing the edited file (3 ms) but the work that is global by definition: resolving
+names and refilling the project's dictionaries. That cache dies with the process and keeps zero
+state on disk, which is the line this project does not cross. And the blocker for more languages is not the
 parser: it is that each framework declares its entry points differently, and a parser without
 those conventions produces a config that runs, reports numbers, and measures nothing.
 
@@ -204,6 +208,26 @@ to the other would turn 70 deletion hypotheses into 3,810. Neither number is wro
 purpose — an index that drops an ambiguous reference is being conservative about *retrieval*,
 where a wrong edge sends you to the wrong file; mcview cannot drop it, because a missing edge
 is exactly how live code gets reported dead.
+
+**And the two do not even count the same THINGS**, which is the cleanest way to see why one
+cannot be built on the other. The same 115-line file, both tools:
+
+```
+mcview      7 entities   the 7 functions
+codegraph  18 entities   the same 7 functions + 6 module variables + 4 imports + the file
+```
+
+The seven functions match exactly, same names, same lines — that is the mutual validation. The
+rest is not disagreement, it is a different unit: codegraph indexes what you might want to
+*find*, mcview indexes what can be reachable, duplicated or dead. Reading `logger` as a symbol
+with no callers would report it as a deletion candidate.
+
+The deeper reason mcview cannot borrow the index: **its views need what an index does not
+store.** A `nodes` row holds name, line, docstring, signature, decorators — metadata *about* a
+symbol, never its body. Without the body there is no lexical scope (the fix that removed 502
+fabricated strong edges), no anonymised skeleton (no duplicate detection at all) and no branch
+marks (no proven forks). So the ~3 s of construction is not a tax an index could refund: it is
+the price of holding the tree those three things come out of.
 
 So: use both, and do not cross the wires.
 
@@ -329,16 +353,16 @@ paragraphs down got found.
   HEAT MAP — mcview
   expected usage mass, derived from structure (without executing anything)
 
-  2 files concentrate 50% of usage · 5 hold 80%   (of 38)
+  2 files concentrate 50% of usage · 6 hold 80%   (of 39)
 
-  49.71% ██████████████████████████████████████████ mcp_server.py
-  12.34% ██████████                                 views/seams.py
-   9.33% ███████                                    mcview.py
-   5.51% ████                                       gate.py
-   4.47% ███                                        extraction/factory.py
-   3.59% ███                                        extraction/core.py
-   0.43% █                                          views/heatmap.py
-   0.17% █                                          views/atlas.py
+  47.67% ██████████████████████████████████████████ mcp_server.py
+  12.21% ██████████                                 views/seams.py
+  10.75% █████████                                  mcview.py
+   4.94% ████                                       gate.py
+   4.32% ███                                        extraction/factory.py
+   3.60% ███                                        extraction/config.py
+   3.51% ███                                        extraction/core.py
+   3.47% ███                                        extraction/ts.py
 ```
 
 Read it against the caveat, not around it: this is structural centrality, and it is *measured*

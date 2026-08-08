@@ -17,6 +17,24 @@ diluting it: `get`, with 10 homonyms, once absorbed 47% of the mass because ever
 
 Everything below is the same row-normalized weight matrix, asked three different things.
 
+### The line that matters is per-file vs cross-file
+
+The three steps are how you *read* the construction. The line that governs it is a different
+one: **what a fact depends on.** Parsing, inventory, lexical scope, branch marks and the
+reference *sites* all derive from one file's text and nothing else. Only two things need the
+whole project — resolving a name against `by_name` (whether it is ambiguous depends on every
+other file) and root reasons (they read the config).
+
+Measured on a 6.3k-symbol repository: **94% of construction lives on the per-file side.**
+That is what makes an incremental rebuild sound rather than merely fast — and the soundness is
+the point, because the cheap version of this is an index that lies. The decisive case is not
+editing a file, it is adding a HOMONYM somewhere else: the cached file's facts are still
+perfectly valid, yet its strong edge must degrade. A cache that keeps per-file facts survives
+this correctly by construction; a cache that keeps the *graph* cannot. The boundary is
+enforced by `_extract(src, tree)` taking no config and no project — it cannot read what it
+must not depend on — and locked by `selfcheck/check_incremental.py`, which compares a warm
+rebuild against a cold one under exactly that scenario.
+
 ---
 
 ## 1 · Stationary distribution → mass
@@ -216,19 +234,33 @@ edges and kills live symbols by cascade — counting a nested `def`'s own name a
 
 ---
 
-## Duplication: bottom-k MinHash
+## Duplication: two algorithms, because the two callers want opposite things
 
-> the census and the pre-write gate · `graph/index.py`, `views/duplicates.py`
+> the pre-write gate · `graph/index.py` — and the census · `views/duplicates.py`
 
-Storing the complete n-gram set of thousands of functions would make the cache enormous. With
-the `k` smallest fingerprints, Jaccard is estimated without storing the sets:
+Type-1/2 clones come from an exact hash of the *anonymized* skeleton (identifiers, attributes
+and literals erased). Type-3 needs Jaccard over the skeleton's n-grams, and that is computed
+**two different ways on purpose**:
+
+**The gate estimates it (bottom-k MinHash).** It compares one snippet against a cache on disk,
+so storing the complete n-gram set of thousands of functions would make that cache enormous.
+The `k` smallest fingerprints estimate Jaccard without storing the sets:
 
 ```
 Ĵ(A,B) = |bottom_k(A ∪ B) ∩ A ∩ B| / |bottom_k(A ∪ B)|
 ```
 
-Type-1/2 clones come from an exact hash of the *anonymized* skeleton (identifiers, attributes
-and literals erased); Type-3 from the n-gram estimate above. Type-4 — same responsibility,
+**The census computes it exactly (prefix filtering).** It has every set in memory already, so
+an estimate would only add error. The naive way — an inverted index over all n-grams — is what
+made this the tool's one expensive view: measured, structural n-grams like `Call ( Name` sit in
+2,113 of 2,116 skeletons, so it walked ~324M postings to feed a threshold that discarded almost
+everything. Prefix filtering is exact for a threshold `t`: if `J(a,b) ≥ t` then a true pair must
+share one of the `|b| − ⌈t·|b|⌉ + 1` globally RAREST grams, so only that prefix is indexed. A
+size filter (`t·|a| ≤ |b| ≤ |a|/t`, two integers) then kills 77% of the survivors before any
+set is touched. Same pairs, 25 s → 2.3 s.
+
+The lesson generalises past this view: **the fix was not a cheaper comparison, it was not
+performing the comparisons that could not win.** Type-4 — same responsibility,
 divergent code — is invisible by definition: if the code diverges so does the skeleton.
 
 **The unit is not the function.** Comparing only function bodies leaves the tool blind to the

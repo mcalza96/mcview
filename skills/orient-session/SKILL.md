@@ -44,9 +44,9 @@ mcview/mcview.py --orient <path/to/file.py>       # or a directory
 mcview/mcview.py --orient <a_symbol>
 mcview/mcview.py --orient <a_table|an_rpc|/a/route|a_tool>   # a seam LITERAL
 
-# the route, and where it leaves the repository. `--no-twins` goes ALWAYS unless you are
-# about to write new code: without it the duplicate analysis runs, which on a large repo
-# takes minutes and feels like the command hung.
+# the route, and where it leaves the repository. `--no-twins` skips the duplicate analysis:
+# worth passing when you only want to get located, not worth avoiding at any cost — measured
+# on a 6.3k-symbol repo it is 4.0 s against 6.1 s. Check on YOUR repo before assuming either.
 mcview/mcview.py --orient <target> --no-twins --flow
 mcview/mcview.py --orient <target> --no-twins --flow --cross   # + the other projects
 
@@ -273,8 +273,10 @@ It includes **nested blocks**, not just functions. A name with a slash
 block paired against an already-extracted function means *"you already pulled this helper out
 in one file and in the other it is still copied by hand"*.
 
-This is what pays for the full analysis. With `--no-twins` the brief drops to seconds and
-loses exactly this: if you only want to get located, do not pay for it.
+This is what the full analysis buys, and `--no-twins` is what you give up to skip it. It used
+to be the expensive half of the command; it is not any more (prefix filtering took the pairing
+from 25 s to 2.3 s on the reference repo), so skip it because you do not need duplicates here,
+not because you are afraid of the wait.
 
 ## Known limits
 

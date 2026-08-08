@@ -127,6 +127,24 @@ table below](#what-each-number-does-not-claim).
 
 Everything accepts `--json`.
 
+**The two surfaces are not two products, and one launches the other.** The MCP server is
+started as `mcview --mcp` — the CLI is its entry point, `mcp_server.py` imports nothing from
+it, and the dependency only runs that way. So the question is never "CLI or MCP": it is which
+shape the answer has to take.
+
+|  | MCP (11 tools) | CLI (17 views with no MCP twin) |
+|---|---|---|
+| who asks | an agent, mid-task | a person, or a hook, or a script |
+| what comes back | JSON, in one call | a figure, a page, a rendered report |
+| the cost that matters | the warm rebuild — ~0.1 s, because the server caches per file | the cold build — ~3 s, and it pays it every invocation |
+
+`--walkthrough`, `--atlas --html`, `--workshop` and `--cross` are CLI-only because an SVG or
+an interactive page does not fit in a JSON-RPC result. `--k`, `--hierarchy` and `--islands`
+are CLI-only because they still cost seconds. The rest —`--flow`, `--services`, `--runtime`,
+`--no-consumer`, `--reach`— are CLI-only for a reason that has **expired**: they were kept out
+when the build cost dominated, and they now run in 0.1–20 ms. That is a scope decision waiting
+to be made, not a measurement.
+
 ---
 
 ## A complement, not a replacement

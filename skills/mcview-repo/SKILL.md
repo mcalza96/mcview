@@ -56,8 +56,9 @@ mcview/mcview.py --orient <target>   # brief for ONE area — see the `orient-se
 All of them accept `--json`. `--project <name>` uses `mcview.<name>.toml`; `--config` takes
 a path. The config discovers itself by walking up from the current directory.
 
-`--no-duplicates` skips the expensive part of the base view (the full base takes tens of
-seconds; without duplicates, seconds).
+`--no-duplicates` skips the duplicate analysis. It used to be the expensive part of the base
+view and no longer is: measured on a 6.3k-symbol repo, 5.3 s full against 3.3 s without, where
+the floor is building the graph. Pass it when you do not need duplicates, not to dodge a wait.
 
 **Level 2 is a METHOD, not a command.** There used to be a module for it; it was removed
 because nothing imported it and nothing ran it. What follows are the questions to ask by hand —
@@ -176,19 +177,6 @@ mcview/selfcheck/check_determinism.py    # ~10 s · no baseline, nothing to conf
 
 Run it before reporting a difference as a finding. Variance is a symptom, never an explanation:
 if a number oscillates, something deterministic is hiding underneath it.
-
-### Two rules about measuring, both bought the hard way
-
-**Before believing a NULL result, prove the instrument can see a known effect.** A measurement
-of "this change does nothing" came back identical to two decimal places and was false — the
-patch had been applied to the wrong attribute, so nothing was being varied at all. It was caught
-by re-running with an absurd input (a single root) and seeing the same output: a null that
-cannot be true. The instrument lies before the system does.
-
-**Time ONE case before running N.** A sweep advertised at ~90 s took 21 minutes because it
-re-parsed the repository once per case. The per-case cost was already printed in an earlier
-output and nobody multiplied. One timed case is seconds; a sweep you regret is minutes of
-somebody's machine.
 
 ### Two rules about measuring, both bought the hard way
 

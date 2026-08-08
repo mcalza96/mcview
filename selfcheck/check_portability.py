@@ -27,6 +27,7 @@ promises.
 from __future__ import annotations
 
 import glob
+import json
 import os
 import shlex
 import shutil
@@ -212,6 +213,32 @@ def main() -> int:
 
         # --- the skills' COMMANDS are not overfitted to this repo ---------
         failures += _generic_commands(d)
+
+        # --- the gate fires, END TO END -----------------------------------
+        # The gate was silently dead for months: its default config path pointed INSIDE the
+        # tool — a location this very check forbids — and fail-open made death look like
+        # quiet. Aliveness is therefore MEASURED: a hook payload duplicating `process` (which
+        # exists in the test project) must come back with a warning, not a bare allow.
+        code, output = _run(d, d, "--exists", "app/main.py")   # builds the index
+        if code != 0:
+            failures.append(f"--exists could not build the gate's index: {output[:160]}")
+        hook = json.dumps({"tool_input": {
+            "file_path": os.path.join(d, "app", "copia.py"),
+            "content": "def process(payload):\n    return payload\n"}})
+        entorno = dict(os.environ)
+        entorno.pop("PYTHONPATH", None)
+        entorno.pop("MCVIEW_CONFIG", None)   # discovery, not the env override, is under test
+        r = subprocess.run([sys.executable, os.path.join(d, "mcview", "gate.py")],
+                           input=hook, capture_output=True, text=True, timeout=60,
+                           cwd=d, env=entorno)
+        aviso = ""
+        try:
+            aviso = json.loads(r.stdout)["hookSpecificOutput"].get("additionalContext", "")
+        except (ValueError, KeyError):
+            pass
+        if "process" not in aviso:
+            failures.append("the gate stayed silent on a real duplicate — fail-open is "
+                            f"hiding a death again (stdout: {r.stdout[:120]!r})")
 
         # --- no module name collides across layers ------------------------
         # The flat `sys.path` is what keeps the imports flat (see `_layers.py`); its single

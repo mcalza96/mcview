@@ -59,11 +59,21 @@ def main():
         import config as _config
         import index as _index
 
-        toml = os.getenv("MCVIEW_CONFIG", os.path.join(HERE, "mcview.toml"))
+        # The config is DISCOVERED from the file being written, the same way every other
+        # entrypoint discovers it. The old default — `mcview/mcview.toml`, INSIDE the tool —
+        # is a path `check_portability` forbids, so the gate was fail-opening on every
+        # write since the config moved out: dead for months, indistinguishable from quiet.
+        toml = os.getenv("MCVIEW_CONFIG") or _config.discover(
+            src=os.path.dirname(os.path.abspath(path)))
+        if not toml:
+            _silently()               # no project config anywhere above the file
         cfg = _config.load(toml)
-        idx = _index.load(cfg)
-        if idx is None:
-            _silently()               # with no index, building one here would be slow
+
+        if _index.load(cfg) is None:
+            _silently()               # cold: building here would be slow — run --exists once
+        # warm refresh: re-parses only what changed (73 ms measured on 762 files), so the
+        # gate never compares against yesterday's photo of the repo.
+        idx = _index.build(cfg)
 
         rel = os.path.relpath(os.path.abspath(path), cfg.root)
         if rel.startswith(".."):

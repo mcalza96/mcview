@@ -13,9 +13,9 @@ from __future__ import annotations
 import core as _core
 
 
-def make_project(cfg):
+def make_project(cfg, file_cache: dict | None = None):
     if getattr(cfg, "language", "python") == "typescript":
         from ts import TSProject
 
         return TSProject(cfg)
-    return _core.Project(cfg)
+    return _core.Project(cfg, file_cache=file_cache)

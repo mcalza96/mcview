@@ -193,6 +193,14 @@ class _Cache:
     def __init__(self):
         self._by_cfg: dict[str, tuple[float, object, object]] = {}
         self._weaves: dict[str, tuple[float, object]] = {}
+        # {cfg_path: {rel: (mtime_ns, FileFacts | None)}} — per-FILE facts that survive a
+        # full-project invalidation. The stamp above answers "did ANYTHING change?"; this
+        # answers "which file?", so the rebuild the agent triggers by editing one file
+        # re-parses one file instead of 725. Facts are text-pure (no config in them), so a
+        # config edit rebuilds the project but keeps every entry. In-process only, dies
+        # with the server: mcview keeps ZERO state on disk — the persistent index with a
+        # watcher is codegraph's identity, not ours.
+        self._facts: dict[str, dict] = {}
 
     @staticmethod
     def _newest(root: str, ignored: set) -> float:
@@ -200,7 +208,10 @@ class _Cache:
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if d not in ignored]
             for f in filenames:
-                if f.endswith((".py", ".ts", ".tsx")):
+                # `.toml` too: before this, the stamp only watched source files, so editing
+                # mcview.toml left a long-lived server answering with the old roots until
+                # some .py file happened to change
+                if f.endswith((".py", ".ts", ".tsx", ".toml")):
                     try:
                         newest = max(newest, os.stat(os.path.join(dirpath, f)).st_mtime)
                     except OSError:
@@ -213,7 +224,7 @@ class _Cache:
         hit = self._by_cfg.get(cfg_path)
         if hit and hit[0] == stamp:
             return hit[1], hit[2]
-        project = _factory.make_project(cfg)
+        project = _factory.make_project(cfg, file_cache=self._facts.setdefault(cfg_path, {}))
         self._by_cfg[cfg_path] = (stamp, cfg, project)
         return cfg, project
 

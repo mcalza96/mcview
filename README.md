@@ -168,8 +168,11 @@ work goes.
 **What would change the calculus.** If the extraction layer has to grow — more languages, or a
 persistent graph so a large repository does not pay the parse on every call — that is a core of
 its own and it will be written. It is not written yet because the measurement does not ask for
-it: building the graph costs 3.3 s on a 6k-symbol repository and every view over it runs in
-milliseconds, so there is nothing to cache away. And the blocker for more languages is not the
+it: building the graph costs ~3 s cold on a 6k-symbol repository and every view over it runs
+in milliseconds — and the one place that cost was actually paid per call, the MCP server's
+edit-ask loop, is covered by an in-process per-file facts cache (a warm rebuild after editing
+one file is ~80 ms, measured 37×). That cache dies with the process and keeps zero state on
+disk, which is the line this project does not cross. And the blocker for more languages is not the
 parser: it is that each framework declares its entry points differently, and a parser without
 those conventions produces a config that runs, reports numbers, and measures nothing.
 
@@ -584,9 +587,9 @@ invisible.
 | **Config lives outside the tool** | While `mcview.toml` sat inside `mcview/`, extracting the module carried the previous project's roots with it. It is now discovered by walking up from the current directory. |
 | **Layers are directories, not packages** | Mounted on `sys.path`, so imports stay flat. A real package forces `python -m mcview` and breaks the copy model. The price: two layers cannot share a file name — `_layers.collisions()` checks that rather than trusting it. |
 | **The skills travel inside** | `orient-session`, `mcview-repo`, `mcview-process`, `mcview-install`. Shipping the engine without the manual is what lets somebody read a ranking as a conclusion. |
-| **Expensive views are not MCP tools** | Full duplicate analysis, `--k`, `--hierarchy`, `--islands` and `--views` run in minutes on a large repo. A call that blocks for minutes is one nobody makes twice. |
+| **Expensive views are not MCP tools** | `--k`, `--hierarchy`, `--islands` and `--views` run in minutes on a large repo. A call that blocks for minutes is one nobody makes twice. (Duplicate analysis left this list: prefix filtering took it from 25 s to 2.3 s on the reference backend.) |
 
-Nine self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
+Ten self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
 config key drifting from its reader — the view returns empty, which reads as a finding — and
 encapsulation eroding until the directory no longer copies cleanly. The latter runs the CLI as a
 subprocess from a temporary directory, because importing the modules proves nothing when
@@ -640,13 +643,13 @@ unpacking turned one real finding into seven rows, and a check with six harmless
 people learn to skip. Verified against the commit that still carried the bug, where it names the
 line exactly — and it found three more in the tree it was written for.
 
-The ninth covers the defect this codebase produces most: a value COMPUTED AND THEN DROPPED.
-Nothing crashes, so the only signal is the absence of an effect nobody was measuring — a flag
-parsed and never passed to what it was scoping, a mode that never ran, a declaration the other
-side never read. It is deliberately narrow: plain assignments only, because counting loop
-unpacking turned one real finding into seven rows, and a check with six harmless rows is one
-people learn to skip. Verified against the commit that still had the bug, where it names the
-line exactly.
+The tenth guards the cache. A per-file facts cache makes the MCP server's warm rebuild 37×
+faster, and buys exactly one new class of bug: an entry surviving a change it should not
+survive. The lock compares a warm rebuild against a cold one — the cold build is the
+definition of truth — under four edits, and the decisive one is a HOMONYM added in another
+file: the cached file's facts stay valid, yet its strong edge must degrade, which only
+happens if resolution truly re-runs globally. It was verified to fail before trusted to
+pass: sabotage the mtime check and it names the four symptoms.
 
 ---
 

@@ -6,21 +6,6 @@ question, and the answer is only as good as which five you happened to open.
 
 mcview computes the answer instead. From today's AST, in seconds, so it cannot be stale.
 
-```
-ORIENTATION — Persistence   (module)
-2 files · 16 symbols · 5.38% of the project's mass
-
-cohesion 0.61
-(complete graph; --hierarchy measures it without hubs — not interchangeable)
-
-── TEMPERATURE ────────────────────────────────────────────
-  ALIVE_PRODUCT            12
-  ALIVE_PRODUCT_WEAK        2
-  ALIVE_NOT_PRODUCT         1
-  DEAD_CANDIDATE            1
-  cold (mass ~0)            2   referenced, but the system does not go through them
-```
-
 One directory, one `.toml`, no dependencies on the main path. Python and TypeScript. Usable as a
 CLI or as an MCP server.
 
@@ -79,17 +64,6 @@ where call-graph analysis stops, because the junction is a string, not a call.
 Three steps produce a graph — inventory, scope, references — and **every view reads that graph
 without looking at the code again**. A defect in one step therefore shows up in every view at
 once, which is why fixes go to the step and never to the view.
-
-```mermaid
-flowchart LR
-  SRC["source"] --> INV["1 · INVENTORY"] --> SCP["2 · SCOPE"] --> REF["3 · REFERENCES"]
-  REF --> G(["symbols + edges"])
-  G --> V1["liveness"]
-  G --> V2["mass · PageRank"]
-  G --> V3["modules · MCL"]
-  G --> V4["flow · paths"]
-  SRC -.-> DUP["duplicates · AST fingerprint"]
-```
 
 A random walker starts at the **declared entry points** and follows references. Where it spends
 its time is the usage mass (personalized PageRank); where it gets trapped are the modules (Markov

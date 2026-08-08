@@ -11,8 +11,8 @@ touch a single import — the special case disappears instead of being handled a
 sites that import a sibling.
 
 The price, stated up front: module names are global, so two layers cannot hold a file
-with the same name. Today all 25 are unique, and the check below measures that rather
-than trusting it.
+with the same name. Today all 25 are unique, and `selfcheck/check_portability.py`
+measures that rather than trusting it.
 
     import _layers   # this is all the entrypoints do
 """

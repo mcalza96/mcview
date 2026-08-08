@@ -652,15 +652,7 @@ def call(name: str, a: dict) -> dict:
     return {"error": f"unknown tool: {name}"}
 
 
-def _workspace_configs(root: str) -> dict:
-    import glob as _glob
-    out = {}
-    for f in sorted(_glob.glob(os.path.join(root, "mcview*.toml"))):
-        b = os.path.basename(f)[:-5]
-        label = b.split(".", 1)[1] if "." in b else "principal"
-        if label != "workspace":
-            out[label] = f
-    return out
+_workspace_configs = _config.workspace_configs
 
 
 # ---------------------------------------------------------------- the protocol

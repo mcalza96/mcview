@@ -356,3 +356,8 @@ already knew would come out wrong.
 
 The METHOD both encoded survives in the `mcview-repo` skill, as prose, which is where a method
 belongs. What is gone is the code that implemented it and never ran.
+
+The same sweep later (2026-08-08) removed the last of that family: `resolve_sinks` and
+`bypasses` in `graph/paths.py`, the declared-sinks half that outlived `analyze` — still with
+zero callers. What every view actually consumes is `paths_to` + `discovered_guards`, and
+reach-guarantees with a real consumer live in `graph/contracts.py`.

@@ -35,6 +35,8 @@ import sys
 import tempfile
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, HERE)
+import _layers  # noqa: E402  — mounts the layers; also the collisions() measurement
 
 PROYECTO = {
     "app/main.py": '''
@@ -210,6 +212,14 @@ def main() -> int:
 
         # --- the skills' COMMANDS are not overfitted to this repo ---------
         failures += _generic_commands(d)
+
+        # --- no module name collides across layers ------------------------
+        # The flat `sys.path` is what keeps the imports flat (see `_layers.py`); its single
+        # failure mode is two layers holding a file with the same name — one wins silently.
+        # `_layers.collisions` existed to measure exactly that and nobody called it.
+        cols = _layers.collisions(os.path.join(d, "mcview"))
+        if cols:
+            failures.append(f"module name collision across layers: {cols}")
 
         # --- the census runs on the bare stdlib ---------------------------
         code, output = _run(d, d)

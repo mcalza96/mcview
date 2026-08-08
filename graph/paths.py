@@ -7,18 +7,19 @@ The first version of level 2 classified guards with regular expressions over the
 worked as a candidate generator and computed nothing: the one doing the reasoning was the
 agent. This replaces it with a graph question, with evidence and without guessing:
 
-    If a ROOT → SINK path exists that crosses no guard,
-    that path IS the finding — and it comes with its own proof: the path.
+    A node that 95% of root→sink paths go through **is** a guard, structurally.
+    The name becomes corroboration.
 
-THREE CONSEQUENCES OF THINKING ABOUT IT THIS WAY
+TWO CONSEQUENCES OF THINKING ABOUT IT THIS WAY
 -----------------------------------
-1. Guards are DISCOVERED, not declared. A node that 95% of root→sink paths go through **is**
-   a guard, structurally. The name becomes corroboration.
-2. The only thing that has to be declared are the SINKS — a short, stable list the owner
-   knows (the client that bypasses RLS, `subprocess`, `eval`). Declaring sinks is far more
-   robust than guessing guards: there are few of them and they do not change.
-3. The answer is not a boolean but a FRACTION: what proportion of paths to the sink cross the
+1. Guards are DISCOVERED, not declared.
+2. The answer is not a boolean but a FRACTION: what proportion of paths to the sink cross the
    guard. 1.0 = chokepoint. 0.7 = 30% dodge it, and there are the 30.
+
+RETIRED 2026-08-08: the declared-sinks + bypass-report machinery (`resolve_sinks`,
+`bypasses`) never got a consumer — every view asks `paths_to` + `discovered_guards`
+directly, and `graph/contracts.py` is where reach-guarantees with a consumer live.
+Contract without consumer → deleted, not kept "just in case".
 
 WHY THE GRAPH IS `mcview`'S AND NOT codegraph'S
 -------------------------------------------------------
@@ -43,24 +44,6 @@ not the ones that had it and forgot the `.eq`.
 from __future__ import annotations
 
 from collections import defaultdict, deque
-
-
-def _index_by_name(project) -> dict[str, list[str]]:
-    out: dict[str, list[str]] = defaultdict(list)
-    for sid, s in project.symbols.items():
-        out[s.name].append(sid)
-    return out
-
-
-def resolve_sinks(project, names: list[str]) -> set[str]:
-    """Declared names → symbol ids. A name that does not resolve is silently ignored because it
-    may come from an external dependency (`subprocess.run` is not a project symbol); the one
-    that matters is the one that resolves."""
-    idx = _index_by_name(project)
-    out: set[str] = set()
-    for n in names:
-        out.update(idx.get(n.split(".")[-1], []))
-    return out
 
 
 def _incoming(project) -> dict[str, set[str]]:
@@ -141,24 +124,3 @@ def discovered_guards(paths: list[list[str]], project,
               "fraccion": v / total, "en": v, "from": total}
              for n, v in count.items() if v / total >= threshold]
     return sorted(out, key=lambda x: -x["fraccion"])
-
-
-def bypasses(paths: list[list[str]], guards: set[str], project) -> list[dict]:
-    """Paths that reach the sink without ANYONE on the path calling a guard.
-
-    It is the finding, and its own evidence. Unlike a name match, here the path can be pasted
-    into the report and the reader verifies it by reading three functions.
-    """
-    out = []
-    for c in paths:
-        neighbors: set[str] = set()
-        for n in c[:-1]:
-            neighbors |= project.edges.get(n, set())
-        if not ((neighbors | set(c[1:-1])) & guards):
-            out.append({
-                "root": project.symbols[c[0]].name,
-                "loc": project.symbols[c[0]].loc,
-                "path": [project.symbols[n].name for n in c],
-                "saltos": len(c) - 1,
-            })
-    return sorted(out, key=lambda x: x["saltos"])

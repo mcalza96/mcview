@@ -198,6 +198,19 @@ def discover(name: str | None = None, src: str | None = None) -> str | None:
         current = parent
 
 
+def workspace_configs(root: str) -> dict:
+    """The workspace's per-project `.toml` files, by label. `mcview.workspace.toml` is NOT
+    one of them: it describes the junctions, not a repository."""
+    import glob as _glob
+    out = {}
+    for f in sorted(_glob.glob(os.path.join(root, "mcview*.toml"))):
+        b = os.path.basename(f)[:-5]
+        label = b.split(".", 1)[1] if "." in b else "principal"
+        if label != "workspace":
+            out[label] = f
+    return out
+
+
 def load(toml_path: str) -> Config:
     with open(toml_path, "rb") as f:
         d = tomllib.load(f)

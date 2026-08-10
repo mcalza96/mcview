@@ -225,3 +225,65 @@ visible by reading the code that generates it. Always open it before handing it 
   not happen.
 - **Where the process stops being traceable.** That is not an apology for the tool: it is
   a finding about the system, and usually the place where you have to intervene.
+
+## Write the analysis down, then have it TORN APART
+
+A flow analysis is a chain of claims about today's code, and the ones that are wrong look exactly
+like the ones that are right. Two habits, in this order, catch what re-reading never does.
+
+**Write it to a `.md` first.** Not as a deliverable — as a way of forcing each claim to stand alone
+with its `file:line`. Claims that only survive inside your own narration collapse the moment they
+have to be written as a numbered list. And it gives the reviewer something to attack.
+
+**Then hand it to a subagent whose job is to REFUTE it.** Give it the file, the tools, and the
+claims one by one; tell it explicitly that "everything is correct" is a failed report unless it
+tried hard to break each one. Point at where you suspect you are weakest — that is where it pays.
+
+Measured in one session, over two reviews: **7 of 8 claims were refuted**, and both times the
+reviewer found something better than what was being fixed. Twice the proposed fix would have
+reintroduced a bug that another mechanism existed to prevent — invisible from inside the analysis,
+obvious to someone told to look for it.
+
+Three failure modes it catches that reading does not:
+
+- **Scope inflation.** "The record spans the turn" — it spanned one tool call. Everything downstream
+  inherits that error silently.
+- **A cause that fits the data and is still wrong.** Two items closed in the SAME SECOND with
+  different results; "they closed at different moments" fit the story and was false — they went
+  through different code paths.
+- **A fix that undoes an existing guarantee.** Pairing evidence to items "by the sentence" was
+  exactly the flattening a column had been added to prevent.
+
+## Verify the verifier: a green check may be watching nothing
+
+Before trusting any structural test you just wrote, **break the code on purpose and confirm it
+fails.** A lock that passes with the bug reintroduced is worse than no lock: it certifies.
+
+Measured: a lock written to catch "the prompt orders a parameter that does not exist" passed with
+the parameter deleted — it asked "does it exist in ANY tool?" and the answer stayed yes elsewhere.
+The lock committed, inside itself, the very error it existed to prevent.
+
+Two more traps from the same session:
+
+- **Functions that read contextvars return nothing in a pure test.** An authorization helper
+  answered `False` for everything, so the lock would have been permanently green. Read the
+  DECLARATIVE table instead.
+- **`import package` registers nothing.** 12 symbols instead of 168 — walk the package.
+
+## Before blaming the code, suspect the measurement
+
+Three times in one session the failing thing was the CHECK, not the system: identifiers that were
+not UUIDs, a payload key spelled `at` instead of `retrieved_at`, and `ast.unparse` normalising
+quotes so a literal search missed. Each time the instinct was to "fix" healthy code.
+
+The habit that saves it: when a result contradicts what the code plainly says, **re-read your own
+probe first**. On a blocking gate, that difference is where working systems get broken.
+
+And two environment traps that produce the same illusion:
+
+- **A new process sees new code; the running server does not.** `exec python -c` imports fresh
+  modules while a server without hot-reload keeps the old ones in memory. Measure against the
+  server, or restart before believing a null result.
+- **The ground moves.** In a shared repo, check the timestamps of commits you did not write and of
+  the running process before concluding a bug is still alive — a measured pattern may already have
+  been fixed by someone else, and "fixing" it again overwrites their work.

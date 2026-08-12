@@ -1,0 +1,136 @@
+title = "mcview — cómo está armado"
+subtitle = "Tres pasos producen un grafo; toda vista lee ese grafo sin volver a mirar el código. Cada caja nombra un objetivo que la herramienta resuelve, y cada medición se re-midió el 2026-08-08."
+
+[[lane]]
+id = "entrada"
+title = "por dónde se entra"
+alternatives = true
+
+[[lane]]
+id = "extraccion"
+title = "extracción — del código al grafo"
+color = "#EEF2FF"
+
+[[lane]]
+id = "vistas"
+title = "las vistas — cada una lee el MISMO grafo"
+alternatives = true   # no hay orden entre ellas: es el punto del carril
+color = "#F0FDF4"
+
+[[lane]]
+id = "candados"
+title = "verificación — 11 candados que viajan con la herramienta"
+alternatives = true
+color = "#FEFCE8"
+
+[[stage]]
+lane = "entrada"
+title = "CLI"
+note = "48 banderas; el despacho elige la vista y le pasa el grafo ya construido"
+verify = "mcview.py"
+
+[[stage]]
+lane = "entrada"
+title = "servidor MCP"
+note = "11 tools sobre stdio; el consumidor real es un agente. Se lanza COMO `mcview --mcp`: el CLI es su puerta"
+verify = "mcp_server.py"
+measured = "0,13 s por turno con el árbol recién editado (17 vistas del CLI no tienen gemela MCP)"
+
+[[stage]]
+lane = "entrada"
+title = "gate de pre-escritura"
+note = "hook antes de escribir: ¿esto ya existe? Descubre su config subiendo desde el archivo que se escribe"
+verify = "gate.py"
+measured = "125 ms por escritura .py, con refresco tibio del índice (79 ms). Estuvo MUERTO meses: su default apuntaba adentro de la tool y el fail-open hacía que la muerte se viera igual que el silencio"
+
+[[stage]]
+lane = "extraccion"
+title = "1 · INVENTARIO"
+note = "AST directo, sin índice externo. Un hueco silencioso es indistinguible de «no se usa»"
+verify = "extraction/core.py"
+measured = "2,9 s frío en 6.453 símbolos · 84 ms tibio (94% del costo es por-archivo, y eso es lo que el caché saltea)"
+
+[[stage]]
+lane = "extraccion"
+title = "2 · ALCANCE LÉXICO"
+note = "qué nombre es local y cuál refiere a un símbolo del proyecto"
+verify = "extraction/core.py"
+measured = "sin esto, 502 de 8.001 aristas fuertes eran inventadas"
+
+[[stage]]
+lane = "extraccion"
+title = "3 · REFERENCIAS"
+note = "aristas con grado de evidencia: inequívoca si el nombre pertenece a UN símbolo"
+verify = "extraction/ts.py"
+measured = "es lo ÚNICO cross-file, y por eso es el piso del turno tibio: 80% de esos 84 ms"
+
+[[stage]]
+lane = "extraccion"
+title = "el tejido"
+note = "varios repos como uno: las costuras son literales, no llamadas"
+verify = "graph/weave.py"
+
+[[stage]]
+lane = "vistas"
+title = "liveness"
+note = "alcanzabilidad desde raíces declaradas, en grados de evidencia. Cierre y contención ALTERNAN hasta punto fijo"
+verify = "graph/index.py"
+measured = "23 ms · una sola pasada de cada uno daba 9 de 14 muertos FALSOS, todos con la misma forma"
+
+[[stage]]
+lane = "vistas"
+title = "masa · PageRank"
+note = "cadena de Markov personalizada, sembrada en las puertas"
+verify = "views/heatmap.py"
+measured = "26 ms · y está medido que NO predice ejecución (AUC 0.506)"
+
+[[stage]]
+lane = "vistas"
+title = "módulos · MCL"
+note = "dónde se atrapa el caminante; declarado vs descubierto"
+verify = "views/communities.py"
+
+[[stage]]
+lane = "vistas"
+title = "flujo · caminos"
+note = "sólo sobre aristas inequívocas: un camino es una afirmación más fuerte"
+verify = "graph/paths.py"
+
+[[stage]]
+lane = "vistas"
+title = "duplicación"
+note = "huella estructural del AST + Jaccard sobre n-gramas con prefix filtering (exacto)"
+verify = "views/duplicates.py"
+measured = "la vista entera 25,8 s → 2,15 s, mismos 172 pares (prefijo raro + filtro de tamaño; el 77% de los candidatos ya no se compara)"
+
+[[stage]]
+lane = "vistas"
+title = "figuras"
+note = "SVG y mermaid propios, sin CDN: el archivo abre con doble clic en cinco años. Nombre y descripción en la raíz, para quien no puede verlas"
+verify = "render/walkthrough.py"
+measured = "una paleta en roles semánticos: 100 literales de color → 53, y 46 de esos viven en tokens.py"
+
+[[stage]]
+lane = "candados"
+title = "contra sí misma"
+note = "fixtures, contratos, bloques, portabilidad, nombres muertos, caché incremental, figuras"
+verify = "selfcheck/check_reach.py"
+measured = "8 de los 11 · el de figuras se escribió porque la herramienta lo estaba fallando"
+
+[[stage]]
+lane = "candados"
+title = "contra otro extractor"
+note = "el censo comparado con un índice ajeno, cuando hay uno"
+verify = "selfcheck/check_external_index.py"
+measured = "0,0–0,2 % de diferencia en cuatro proyectos Python"
+
+[[stage]]
+lane = "candados"
+title = "contra el azar"
+note = "misma orden, mismo código, misma respuesta"
+verify = "selfcheck/check_determinism.py"
+measured = "23 vistas idénticas bajo dos semillas de hash · encontró 5 bugs de no-determinismo"
+
+[[cut]]
+after = "extraccion"
+text = "ACÁ TERMINA EL CÓDIGO FUENTE — toda vista de abajo lee el grafo y no vuelve a abrir un archivo. Un defecto en un paso de arriba aparece en TODAS las vistas a la vez."

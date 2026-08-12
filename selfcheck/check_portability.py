@@ -34,6 +34,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
@@ -201,15 +202,28 @@ def main() -> int:
         # --- nothing from THIS repository leaked in -----------------------
         # A PROJECT config inside the tool is the failure this catches: while `mcview.toml`
         # lived in `mcview/`, extracting the module carried the previous project's roots,
-        # modules and seams with it. `pyproject.toml` is not that — it is the packaging
-        # manifest, it describes the tool and not any project measured by it, and it has to
-        # travel. The rule names what it is looking for instead of matching every `.toml`,
-        # because a lock that fires on the wrong thing gets widened until it fires on nothing.
-        PACKAGING = {"pyproject.toml"}
+        # modules and seams with it.
+        #
+        # The rule reads the CONTENT, not the file name. An allow-list of names had to grow
+        # every time a legitimate `.toml` appeared —`pyproject.toml`, then the walkthrough
+        # spec that documents the tool— and a lock that gets widened on every false alarm
+        # ends up firing on nothing. What makes a file a project config is that it declares
+        # a `root` to measure; a packaging manifest and a figure spec never do, whatever
+        # they are called, and renaming one cannot smuggle it past this.
         for root, _, files in os.walk(os.path.join(d, "mcview")):
             for a in files:
-                if a.endswith(".toml") and a not in PACKAGING:
-                    failures.append(f"a project config was left inside the tool: {a}")
+                if not a.endswith(".toml"):
+                    continue
+                try:
+                    with open(os.path.join(root, a), "rb") as fh:
+                        datos = tomllib.load(fh)
+                except (ValueError, OSError):
+                    continue
+                if isinstance(datos.get("project"), dict) and "root" in datos["project"]:
+                    rel = os.path.relpath(os.path.join(root, a), os.path.join(d, "mcview"))
+                    failures.append(f"a project config was left inside the tool: {rel} "
+                                    f"(it declares root={datos['project']['root']!r}, so "
+                                    "copying the tool carries another project's yardstick)")
 
         # --- the skills' COMMANDS are not overfitted to this repo ---------
         failures += _generic_commands(d)

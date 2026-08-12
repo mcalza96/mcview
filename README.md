@@ -65,6 +65,18 @@ Three steps produce a graph — inventory, scope, references — and **every vie
 without looking at the code again**. A defect in one step therefore shows up in every view at
 once, which is why fixes go to the step and never to the view.
 
+![how mcview is put together](docs/ARQUITECTURA.png)
+
+That figure is drawn BY the tool from [`docs/ARQUITECTURA.toml`](docs/ARQUITECTURA.toml), and
+every box names a target that has to resolve — a stage pointing at something that does not
+exist fails the render instead of shipping. Every measurement on it was taken on the commit
+that ships it, and the footer states what the figure does NOT claim, which is usually worth as
+much as the drawing.
+
+```bash
+mcview --walkthrough docs/ARQUITECTURA.toml --png docs/ARQUITECTURA.png
+```
+
 A random walker starts at the **declared entry points** and follows references. Where it spends
 its time is the usage mass (personalized PageRank); where it gets trapped are the modules (Markov
 clustering); how often a route crosses a node is an absorbing chain. Same matrix, three

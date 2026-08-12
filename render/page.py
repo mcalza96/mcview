@@ -30,6 +30,8 @@ import base64
 import html
 import os
 
+import tokens as _tokens
+
 # `vendor/` lives at the tool's ROOT, not next to this file: `page.py` moved down into
 # `render/` and the renderer stayed up top, where whoever installs it copies it.
 VENDOR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -85,29 +87,11 @@ def _renderer() -> tuple[str, str]:
 }})();
 </script>""", "")
 
-CSS = """
-:root{
-  --ground:#F7F8F7; --panel:#FFFFFF; --ink:#151B19; --muted:#68736E;
-  --line:#DDE3E0; --accent:#0F6E5C; --accent-soft:#E4EFEB; --warn:#9A6B1F;
-  --warn-soft:#F6EEDF; --dead:#8C3B36;
-}
-@media (prefers-color-scheme: dark){
-  :root{
-    --ground:#101513; --panel:#161D1A; --ink:#E4EAE7; --muted:#8A9791;
-    --line:#242C29; --accent:#5FBFA6; --accent-soft:#172B26; --warn:#D2A354;
-    --warn-soft:#2A2318; --dead:#D98882;
-  }
-}
-:root[data-theme="dark"]{
-  --ground:#101513; --panel:#161D1A; --ink:#E4EAE7; --muted:#8A9791;
-  --line:#242C29; --accent:#5FBFA6; --accent-soft:#172B26; --warn:#D2A354;
-  --warn-soft:#2A2318; --dead:#D98882;
-}
-:root[data-theme="light"]{
-  --ground:#F7F8F7; --panel:#FFFFFF; --ink:#151B19; --muted:#68736E;
-  --line:#DDE3E0; --accent:#0F6E5C; --accent-soft:#E4EFEB; --warn:#9A6B1F;
-  --warn-soft:#F6EEDF; --dead:#8C3B36;
-}
+# The four blocks are GENERATED from `tokens`. Hand-kept, the light palette appeared twice
+# and the dark one twice: changing one colour was four edits and three of them were easy to
+# miss. `--line` keeps its name here because the stylesheet below says `--line` in thirty
+# rules; the token is called `rule`.
+CSS = _tokens.css_vars({"rule": "line"}) + """
 *{box-sizing:border-box}
 body{
   margin:0; background:var(--ground); color:var(--ink);

@@ -633,11 +633,21 @@ invisible.
 | **The skills travel inside** | `orient-session`, `mcview-repo`, `mcview-process`, `mcview-install`. Shipping the engine without the manual is what lets somebody read a ranking as a conclusion. |
 | **Expensive views are not MCP tools** | `--k`, `--hierarchy`, `--islands` and `--views` run in minutes on a large repo. A call that blocks for minutes is one nobody makes twice. (Duplicate analysis left this list: prefix filtering took it from 25 s to 2.3 s on the reference backend.) |
 
-Ten self-checks travel with it, in `selfcheck/`. Two cover failure modes that do not crash: a
-config key drifting from its reader — the view returns empty, which reads as a finding — and
-encapsulation eroding until the directory no longer copies cleanly. The latter runs the CLI as a
+Eleven self-checks travel with it, in `selfcheck/`. Three cover failure modes that do not
+crash: a config key drifting from its reader — the view returns empty, which reads as a
+finding — encapsulation eroding until the directory no longer copies cleanly, and a figure
+losing the metadata that makes it readable without eyes. The second runs the CLI as a
 subprocess from a temporary directory, because importing the modules proves nothing when
 `sys.path` and `cwd` are already contaminated.
+
+The eleventh is the newest and it was written because the tool was failing it. Its figures
+shipped with no `<title>`, no `<desc>` and no `role` — to a screen reader, an empty box —
+and the journey's per-step tooltips were emitted flat at the SVG root, siblings of the
+circles they claimed to annotate, which makes them tooltips for nothing while reading, in
+the code, exactly like an annotated figure. `check_figures.py` now measures the real
+output: name first and short, a description of what the figure SHOWS rather than of its
+geometry, live `aria-labelledby`, and prefixed ids so two figures inlined in one page
+cannot capture each other's markers.
 
 The seventh asks somebody else. Every other lock checks mcview against a fixture mcview wrote,
 and a parser bug consistent with itself passes all of them; `check_external_index.py` compares

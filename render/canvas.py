@@ -15,25 +15,16 @@ from __future__ import annotations
 import html
 import json
 
+import tokens as _tokens
+
 # The color says the census liveness level, NOT reachability. The distinction matters: in
 # CIRE 73% of the symbols are not reached through unambiguous edges and almost all of them are
 # alive — painting that as "unhooked" would be a measured lie.
-COLORES = {
-    "ALIVE_PROVEN": "#22c55e",
-    "ALIVE_PRODUCT": "#38bdf8",
-    "ALIVE_PRODUCT_WEAK": "#a78bfa",
-    "ALIVE_NOT_PRODUCT": "#facc15",
-    "ALIVE_BY_NESTING": "#fb923c",
-    "DEAD_CANDIDATE": "#f43f5e",
-    "": "#64748b",
-}
+COLORES = _tokens.STATUS
 
 _PAGINA = """<meta charset="utf-8"><title>atlas — __TITLE__</title>
 <style>
-:root{--bg:#f8fafc;--fg:#0f172a;--sub:#64748b;--panel:#fff;--borde:#e2e8f0;--edge:#94a3b8}
-@media(prefers-color-scheme:dark){:root{--bg:#0b1120;--fg:#e2e8f0;--sub:#94a3b8;--panel:#111c33;--borde:#1e293b;--edge:#475569}}
-:root[data-tema=dark]{--bg:#0b1120;--fg:#e2e8f0;--sub:#94a3b8;--panel:#111c33;--borde:#1e293b;--edge:#475569}
-:root[data-tema=light]{--bg:#f8fafc;--fg:#0f172a;--sub:#64748b;--panel:#fff;--borde:#e2e8f0;--edge:#94a3b8}
+__TOKENS__
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;overflow:hidden}
 #barra{position:fixed;top:0;left:0;right:0;height:44px;display:flex;align-items:center;
@@ -104,7 +95,7 @@ function disponer(){
   });
 }
 
-const PROY = ['#38bdf8','#f59e0b','#a78bfa','#22c55e','#f43f5e'];
+const PROY = __TONOS__;
 const projects = [...new Set(M.levels.module.nodes.map(n => n.project).filter(Boolean))].sort();
 function colorDe(n){
   if (n.project) return PROY[projects.indexOf(n.project) % PROY.length];
@@ -163,8 +154,8 @@ function draw(){
       // system stops resolving by call. Looking different is the point.
       const R = 16; cx.beginPath();
       cx.moveTo(n.x, n.y-R); cx.lineTo(n.x+R, n.y); cx.lineTo(n.x, n.y+R); cx.lineTo(n.x-R, n.y);
-      cx.closePath(); cx.fillStyle = '#f59e0b'; cx.fill();
-      cx.lineWidth = 1.5; cx.strokeStyle = '#b45309'; cx.stroke();
+      cx.closePath(); cx.fillStyle = __WARN__; cx.fill();
+      cx.lineWidth = 1.5; cx.strokeStyle = __WARN_INK__; cx.stroke();
       cx.globalAlpha = 1; cx.fillStyle = '#fff'; cx.font = 'bold 11px ui-sans-serif,sans-serif';
       cx.textAlign = 'center'; cx.fillText(opened ? '−' : '+', n.x, n.y+4);
       cx.fillStyle = css.getPropertyValue('--fg').trim();
@@ -294,7 +285,11 @@ document.getElementById('backward').onclick = () => {
 };
 document.getElementById('tema').onclick = () => {
   const r = document.documentElement;
-  const oscuro = getComputedStyle(r).getPropertyValue('--bg').trim() !== '#f8fafc';
+  // Ask the DOM what it IS, not what colour it happens to be. Comparing against a hex
+  // literal put the palette in a fifth place: changing a token silently froze the toggle.
+  const oscuro = r.dataset.tema
+    ? r.dataset.tema === 'dark'
+    : matchMedia('(prefers-color-scheme: dark)').matches;
   r.dataset.tema = oscuro ? 'light' : 'dark'; draw();
 };
 document.getElementById('leyenda').innerHTML = projects.length
@@ -328,7 +323,17 @@ def page(modelo: dict) -> str:
     # `%` (`50%`, `toFixed(2)+'%'`) and the formatting would take them as directives.
     datos = json.dumps(modelo, separators=(",", ":"), ensure_ascii=False)
     return (_PAGINA
+            # The atlas keeps its own variable NAMES —`--bg`/`--fg`/`--sub`/`--borde`, said
+            # in thirty rules of its stylesheet— but no longer its own palette. Before this,
+            # the atlas was slate-and-sky and the HTML page editorial green: one tool, two
+            # looks, and nothing connecting them.
+            .replace("__TOKENS__", _tokens.css_vars(
+                {"ground": "bg", "ink": "fg", "muted": "sub", "rule": "borde"},
+                attr="data-tema"))
             .replace("__TITLE__", html.escape(modelo["project"]))
             .replace("__COLORES__", json.dumps(COLORES))
+            .replace("__TONOS__", json.dumps(_tokens.TONES))
+            .replace("__WARN__", json.dumps(_tokens.LIGHT["warn"]))
+            .replace("__WARN_INK__", json.dumps(_tokens.LIGHT["warn_ink"]))
             # `</script>` inside a JSON string would close the tag containing it.
             .replace("__DATOS__", datos.replace("</", "<\\/")))

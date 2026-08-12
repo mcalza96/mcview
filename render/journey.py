@@ -24,6 +24,9 @@ from __future__ import annotations
 
 import html
 
+import figure as _figure
+import tokens as _tokens
+
 ALTO_CARRIL = 62
 ANCHO_PASO = 132
 MARGEN_IZQ = 208
@@ -32,7 +35,7 @@ RADIO = 7
 
 # The tool's palette, not a new one. The per-project accent is used only to tell repositories
 # apart; inside a single one, every lane shares the tone.
-TONOS = ["#0F6E5C", "#B26A00", "#5B4BC4", "#B03A5B", "#20707F"]
+TONOS = _tokens.TONES
 
 
 def _e(x) -> str:
@@ -96,9 +99,18 @@ def draw(weave, r: dict, lane_of) -> str:
     def tone(c: str) -> str:
         return TONOS[projects.index(_project(c)) % len(TONOS)]
 
-    o = [f'<svg viewBox="0 0 {W:.0f} {H:.0f}" width="{W:.0f}" height="{H:.0f}" '
-         f'xmlns="http://www.w3.org/2000/svg" class="journey" role="img" '
-         f'aria-label="the turn\'s sequence by lanes">']
+    cruces = sum(1 for i in range(len(steps) - 1)
+                 if _project(steps[i]["lane"]) != _project(steps[i + 1]["lane"]))
+    vistos = sum(1 for p in steps if p["ejecutado"])
+    o = [_figure.open_svg(
+        uid="journey", width=W, height=H,
+        title="the turn's sequence by lanes",
+        # WHAT IT SHOWS, not what it looks like: the counts are the figure's claim, and
+        # they are the part somebody who cannot see it actually needs.
+        desc=(f"{len(steps)} steps in order across {len(lanes)} lanes, "
+              f"{cruces} of them crossing between repositories; "
+              f"{vistos} were seen executing."),
+        extra='class="journey"')]
 
     # Lane bands. Alternating and very faint: they separate without competing with the steps.
     for c in lanes:
@@ -134,8 +146,12 @@ def draw(weave, r: dict, lane_of) -> str:
         t = tone(p["lane"])
         seen = p["ejecutado"]
         relleno = t if seen or seen is None else "var(--panel)"
-        o.append(f'<circle cx="{cx_}" cy="{cy_}" r="{RADIO}" fill="{relleno}" '
-                 f'stroke="{t}" stroke-width="2" class="hito"/>')
+        # The tooltip is INSIDE the circle's own group. Emitted flat —as it was— a
+        # `<title>` is a sibling of the shape and names the root instead: it rendered
+        # nothing while reading, in the code, exactly like an annotated figure.
+        o.append(f'<g>{_figure.node_title(f"{p["name"]} — {p["loc"]}")}'
+                 f'<circle cx="{cx_}" cy="{cy_}" r="{RADIO}" fill="{relleno}" '
+                 f'stroke="{t}" stroke-width="2" class="hito"/></g>')
         if seen:
             o.append(f'<circle cx="{cx_}" cy="{cy_}" r="{RADIO + 5}" fill="none" '
                      f'stroke="{t}" stroke-width="1" opacity=".33"/>')
@@ -151,7 +167,6 @@ def draw(weave, r: dict, lane_of) -> str:
         if sub:
             o.append(f'<text x="{cx_}" y="{ty + (-12 if arriba else 13)}" '
                      f'class="step-sub" text-anchor="middle">{_e(" · ".join(sub))}</text>')
-        o.append(f'<title>{_e(p["name"])} — {_e(p["loc"])}</title>')
 
     o.append("</svg>")
     return "\n".join(o)

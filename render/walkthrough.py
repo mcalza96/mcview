@@ -37,6 +37,9 @@ import shutil
 import subprocess
 import tomllib
 
+import figure as _figure
+from tokens import LIGHT as T
+
 # Measured in a browser at these sizes, and it only has to be an UPPER bound: the wrap breaks
 # earlier than it must, which costs a line and never overlaps. Guessing low is what puts one
 # box's text on top of the next.
@@ -156,25 +159,32 @@ def draw(spec: dict, cuts: list[dict] | None = None,
                      for k, v in (caveats or {}).items())
     total_h = y + 46 + 21 + lineas_pie * 16 + 24
 
-    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {total_h:.0f}" '
-         f'width="{WIDTH}" height="{total_h:.0f}" font-family="-apple-system,Segoe UI,'
-         f'Helvetica,Arial,sans-serif">',
-         f'<rect width="{WIDTH}" height="{total_h:.0f}" fill="#FFFFFF"/>']
+    n_stages = len(spec.get("stage", []))
+    o = [_figure.open_svg(
+        uid="wt", width=WIDTH, height=total_h,
+        title=spec.get("title", "recorrido"),
+        desc=(f'{spec.get("subtitle") or spec.get("title", "recorrido")} '
+              f'{n_stages} stages grouped into {len(plan)} lanes'
+              + (f', with {len(cuts)} cut(s) where the flow is dispatched by name'
+                 if cuts else "")
+              + f'. {len(caveats or {})} caveat(s) stated at the foot.'),
+        extra='font-family="-apple-system,Segoe UI,Helvetica,Arial,sans-serif"'),
+         f'<rect width="{WIDTH}" height="{total_h:.0f}" fill="{T["panel"]}"/>']
     q = html.escape
 
-    o.append(f'<text x="{MARGIN}" y="46" font-size="27" font-weight="700" fill="#0F172A">'
+    o.append(f'<text x="{MARGIN}" y="46" font-size="27" font-weight="700" fill="{T["ink"]}">'
              f'{q(spec.get("title", "recorrido"))}</text>')
     if spec.get("subtitle"):
-        o.append(f'<text x="{MARGIN}" y="72" font-size="13" fill="#64748B">'
+        o.append(f'<text x="{MARGIN}" y="72" font-size="13" fill="{T["muted"]}">'
                  f'{q(spec["subtitle"])}</text>')
 
     for p in plan:
         lane, y0, height = p["lane"], p["y"], p["height"]
-        tint = lane.get("color", "#F8FAFC")
+        tint = lane.get("color", T["ground"])
         o.append(f'<rect x="{MARGIN}" y="{y0}" width="{usable}" height="{height}" rx="14" '
-                 f'fill="{tint}" stroke="#E2E8F0"/>')
+                 f'fill="{tint}" stroke="{T["rule"]}"/>')
         o.append(f'<text x="{MARGIN + 20}" y="{y0 + 26}" font-size="11.5" font-weight="700" '
-                 f'letter-spacing="1.1" fill="#94A3B8">{q(lane.get("title", lane["id"]).upper())}</text>')
+                 f'letter-spacing="1.1" fill="{T["soft"]}">{q(lane.get("title", lane["id"]).upper())}</text>')
 
         yy = y0 + 44
         for row, alto_fila in zip(p["rows"], p["row_heights"]):
@@ -182,19 +192,19 @@ def draw(spec: dict, cuts: list[dict] | None = None,
                 x = MARGIN + 20 + i * (BOX_W + GAP)
                 h = _box_height(st)
                 o.append(f'<rect x="{x}" y="{yy}" width="{BOX_W}" height="{h:.0f}" rx="10" '
-                         f'fill="#FFFFFF" stroke="{st.get("color", "#CBD5E1")}"/>')
+                         f'fill="{T["panel"]}" stroke="{st.get("color", T["rule"])}"/>')
                 o.append(f'<text x="{x + 16}" y="{yy + 26}" font-size="14" font-weight="700" '
-                         f'fill="#0F172A">{q(st.get("title", ""))}</text>')
+                         f'fill="{T["ink"]}">{q(st.get("title", ""))}</text>')
                 ty = yy + 46
                 for ln in _wrap(st.get("note", ""), BOX_W - 32, "nota"):
-                    o.append(f'<text x="{x + 16}" y="{ty}" font-size="11.5" fill="#475569">'
+                    o.append(f'<text x="{x + 16}" y="{ty}" font-size="11.5" fill="{T["ink_soft"]}">'
                              f'{q(ln)}</text>')
                     ty += 17
                 if st.get("measured"):
                     ty += 8
                     for ln in _wrap(st["measured"], BOX_W - 32, "medida"):
                         o.append(f'<text x="{x + 16}" y="{ty}" font-size="11" font-weight="600" '
-                                 f'fill="#047857">{q(ln)}</text>')
+                                 f'fill="{T["accent"]}">{q(ln)}</text>')
                         ty += 15
                 # The arrow to the next stage: horizontal, INSIDE the row. Never diagonal —
                 # a long diagonal is what crossed a lane title in the figure this replaces.
@@ -203,32 +213,32 @@ def draw(spec: dict, cuts: list[dict] | None = None,
                 if i + 1 < len(row) and not lane.get("alternatives"):
                     xa = x + BOX_W
                     o.append(f'<path d="M {xa + 3} {yy + h / 2:.0f} H {xa + GAP - 4}" '
-                             f'stroke="#94A3B8" stroke-width="1.6" marker-end="url(#p)"/>')
+                             f'stroke="{T["soft"]}" stroke-width="1.6" marker-end="url(#wt-arrow)"/>')
             yy += alto_fila + GAP
 
         cut = cut_after.get(lane["id"])
         if cut:
             yc = y0 + height + 12
             o.append(f'<rect x="{MARGIN}" y="{yc}" width="{usable}" height="52" rx="8" '
-                     f'fill="#FFFBEB" stroke="#F59E0B" stroke-width="2" '
+                     f'fill="{T["warn_soft"]}" stroke="{T["warn"]}" stroke-width="2" '
                      f'stroke-dasharray="9 6"/>')
             txt = cut.get("text") or (
                 f'CUT — {cut.get("kind", "seam")} {cut.get("at") or cut.get("id", "")}: '
                 f'the target is chosen BY NAME. No call crosses this line.')
             o.append(f'<text x="{WIDTH / 2:.0f}" y="{yc + 31}" font-size="13" font-weight="700" '
-                     f'text-anchor="middle" fill="#B45309">{q(txt)}</text>')
+                     f'text-anchor="middle" fill="{T["warn_ink"]}">{q(txt)}</text>')
 
     yf = y + 24
-    o.append(f'<text x="{MARGIN}" y="{yf}" font-size="12.5" font-weight="700" fill="#0F172A">'
+    o.append(f'<text x="{MARGIN}" y="{yf}" font-size="12.5" font-weight="700" fill="{T["ink"]}">'
              f'What this figure does NOT claim</text>')
     for k, v in (caveats or {}).items():
         yf += 14
         for ln in _wrap(f"· {k}: {v}", usable - 10, "nota"):
-            o.append(f'<text x="{MARGIN}" y="{yf}" font-size="11" fill="#64748B">{q(ln)}</text>')
+            o.append(f'<text x="{MARGIN}" y="{yf}" font-size="11" fill="{T["muted"]}">{q(ln)}</text>')
             yf += 16
 
-    o.append('<defs><marker id="p" markerWidth="7" markerHeight="7" refX="6" refY="3.5" '
-             'orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="#94A3B8"/></marker></defs>')
+    o.append('<defs><marker id="wt-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" '
+             f'orient="auto"><path d="M0,0 L7,3.5 L0,7 z" fill="{T["soft"]}"/></marker></defs>')
     o.append("</svg>")
     return "\n".join(o)
 

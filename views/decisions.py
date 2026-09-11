@@ -40,8 +40,7 @@ def build(weave, src: str, dst: str, statuses: dict[str, str],
         return r
 
     inside = r["inside"]
-    seams = {(c["from"], c["to"]) for c in getattr(weave, "applied_seams", ())}
-    P = _markov.transitions(weave, inside, seams)
+    P = _markov.transitions(weave, inside)
     visitas = _markov.expected_visits(P, r["origin"])
     decide = {d["id"]: d for d in _markov.decisions(P, visitas)}
     # The ones that can be PROVEN: calls in different branches of the same conditional. The
@@ -89,7 +88,8 @@ def build(weave, src: str, dst: str, statuses: dict[str, str],
     # but they carry NO probability: they are not branches of the flow, they are mentions of
     # a name.
     edges = [{"from": a, "to": b, "weight": 3, "seam": True}
-               for (a, b) in sorted(seams) if a in inside and b in inside]
+               for (a, b) in sorted(_markov.seam_pairs(weave))
+               if a in inside and b in inside]
     for i, branches in P.items():
         for j, p in branches:
             a = {"from": i, "to": j, "weight": max(1, round(p * 10))}

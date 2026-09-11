@@ -126,7 +126,7 @@ table below](#what-each-number-does-not-claim).
 | Set this up on a repo nobody measured yet | `--init` | `mcview_init` |
 | What is this area and how does it work? | `--orient <target> --flow` | `mcview_orient` |
 | What happens, and in what order? | `--sequence <target> --to <dest>` | `mcview_process` |
-| Which edges CAN the flow traverse? | `--sequence <target> --all` | — |
+| Which edges CAN the flow traverse? | `--sequence <target> --all` | `mcview_process` (`all: true`) |
 | Draw how this works, for someone who will not read the code | `--blueprint` | `mcview_blueprint` |
 | The JOURNEY as a figure, from a spec you write | `--walkthrough <spec.toml>` | — |
 | What can a request traverse, across repos? | `--route "<name>"` | `mcview_route` |

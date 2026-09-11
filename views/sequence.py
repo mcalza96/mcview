@@ -269,6 +269,16 @@ def _count_leaves(n: dict) -> int:
 # structurally central, never which the flow can traverse. The set is reachability, which the
 # liveness census already computes; the weight of each branch is the absorbing chain, which
 # `--decisions` already computes. Neither needed inventing — what was missing is an output.
+
+# The cut of the per-symbol list, and it is a fraction of ONE visit to the door: below this a
+# symbol is passed through less than once every hundred times the flow enters. It is NOT a claim
+# that it does not matter — it is that under it the ordering stops being readable, and a tail of
+# thousands sorted by the fourth decimal reads as a ranking while carrying no information. What
+# falls under it is COUNTED and reported: a cut whose size is unknown is the one that reads as if
+# it were everything.
+PISO_VISITAS = 0.01
+
+
 def reach_all(weave, entry: str, rank: dict[str, float], obs: dict[str, int] | None = None,
               narrated: set[str] | None = None) -> dict:
     """Everything reachable from an entry, grouped by line of work and weighted by the chain.
@@ -311,6 +321,9 @@ def reach_all(weave, entry: str, rank: dict[str, float], obs: dict[str, int] | N
     visitas: dict[str, float] = {}
     try:
         import markov as _markov
+        # The seams are out of the WEIGHT and in the SET — `transitions` takes them out of
+        # the matrix on its own. The name does join the two repos; it is the weight that
+        # cannot come from a literal somebody matched (see `markov.transitions`).
         P = _markov.transitions(weave, reachable)
         visitas = _markov.expected_visits(P, set(ids))
     except Exception:  # noqa: BLE001
@@ -336,10 +349,29 @@ def reach_all(weave, entry: str, rank: dict[str, float], obs: dict[str, int] | N
             row["executed"] += 1
 
     rows = sorted(by_line.values(), key=lambda x: (-x["share"], -x["symbols"]))
+
+    # The per-symbol detail, which used to be computed here and thrown away: the aggregate by
+    # line of work is what fits in a head, and it is not what you can go and READ. Ordered by
+    # expected visits and cut at the floor, with the id so the consumer can ask the index for
+    # the source, and with `unambiguous` next to each one so weak reach is visible per row and
+    # not only as a total.
+    per_symbol = sorted(
+        ({"id": sid, "name": weave.symbols[sid].name, "loc": weave.symbols[sid].loc,
+          "line": _lane(weave, sid), "visits": round(v, 4),
+          "unambiguous": sid in unambiguous}
+         for sid, v in visitas.items()
+         if v >= PISO_VISITAS and sid in reachable),
+        key=lambda x: (-x["visits"], x["id"]))
+
     out = {"entry": entry, "entries": len(ids), "reachable": len(reachable),
            "unambiguous": len(unambiguous),
            "edges": aristas, "of_project": len(weave.symbols),
-           "weighted": bool(visitas), "lines": rows}
+           "weighted": bool(visitas), "lines": rows,
+           "symbols": per_symbol, "floor": PISO_VISITAS,
+           # Arithmetically true whether or not the chain was built: how many reachable symbols
+           # the list above does NOT name. With no chain there is no floor to apply and the list
+           # is empty — `weighted` says which of the two it is.
+           "not_listed": len(reachable) - len(per_symbol)}
     if obs is not None:
         out["executed"] = sum(1 for s in reachable if s in obs)
     if narrated is not None:
@@ -371,6 +403,15 @@ def report_reach(weave, r: dict) -> str:
                  f"{x['unambiguous']:6}{share}{vis}")
     if len(r["lines"]) > 20:
         f.append(f"  … and {len(r['lines']) - 20} more lines of work")
+
+    if r.get("symbols"):
+        f.append(f"\n  {'symbol':34} {'visits':>7}  where — expected visits ≥ {r['floor']}, "
+                 f"the other {r['not_listed']} are below it")
+        for x in r["symbols"][:20]:
+            weak = "" if x["unambiguous"] else "  ~only through a shared name"
+            f.append(f"  {x['name'][:34]:34} {x['visits']:7.4f}  {x['loc']}{weak}")
+        if len(r["symbols"]) > 20:
+            f.append(f"  … and {len(r['symbols']) - 20} more above the floor")
 
     f += ["",
           "  This is what the flow CAN traverse, not what it does. The set is reachability",

@@ -75,6 +75,11 @@ CAVEAT = {
     "order": ("The order is the WRITTEN one, not the executed one. A call inside an `if` shows "
               "up even if it never runs; a dynamically dispatched one does not show up even if "
               "it always runs."),
+    "reach": ("A SET, not an order: this is every edge the flow CAN traverse, so nothing here "
+              "is claimed to happen in this sequence or to happen at all. The weight is the "
+              "absorbing chain from the door, NOT project centrality — a symbol can be the "
+              "heart of the repo and take no part in this entry. Seams are out of the weight "
+              "(a matched literal is not a call with a probability) and in the set."),
     "locks": ("The verdict is exact —proven by removal, not sampled— but it only sees REACHING "
               "the sink without crossing the guard. It does NOT see 'crossed the guard and "
               "forgot the tenant filter': that is an argument, not an edge."),
@@ -141,6 +146,14 @@ code, not to explain code you already read.
 `mcview_orient` is the primary tool. Given a module, a path or a symbol it returns: mass,
 cohesion, the grades of liveness, who uses it, what it depends on, how you get in, what the
 paths cross first (the guards), and one concrete path to verify by reading three functions.
+
+`mcview_process` answers TWO questions and the argument picks which. Without `all` it is
+the narrative: what happens and in what order, which it gets by descending the heaviest call
+— so it PRUNES, and on a real repo it shows a few percent of what the entry reaches. With
+`all: true` it is the SET: every symbol the entry can reach, by line of work, weighted by the
+chain from the door. **Ask for the set before you WRITE.** The ramifications the narrative
+pruned are exactly where a second implementation of something that already exists gets born,
+and the result tells you what fraction of itself the narrative would have shown.
 
 If the project has no config yet, every tool fails the same way and tells you to call
 `mcview_init` first — that derives a starter config from what the project already declares.
@@ -325,10 +338,20 @@ TOOLS = [
                "description": "Destination. With it, nothing on a path to the destination is "
                               "pruned by mass — which is usually the step that explains how "
                               "the result is assembled."},
+        "all": {"type": "boolean", "default": False,
+                "description": "Answer the OTHER question: not what happens in what order, but "
+                               "the whole SET of symbols this entry can reach — every line of "
+                               "work, weighted by the chain, plus the symbols above the floor "
+                               "with their location. Use it before WRITING, to see the "
+                               "ramifications the narrative prunes (it descends the heaviest "
+                               "call). Incompatible with `to`."},
         "runtime": {"type": "boolean", "default": False,
                     "description": "Mark which steps were SEEN executing, from the probe "
                                    "census. It confirms; it never rules out."},
-        "depth": {"type": "number", "default": 4},
+        "depth": {"type": "number", "default": 4,
+                  "description": "With `all`, it does not prune anything: it only sets how "
+                                 "deep the narrative used to MEASURE what fraction of the "
+                                 "reach it would have shown."},
         "project": _PROJECT, "projectPath": _PATH},
        ["target"]),
 
@@ -515,7 +538,35 @@ def call(name: str, a: dict) -> dict:
         if a.get("runtime"):
             import runtime as _rt
             obs = _rt.observed(base, cfg.root)
-        r = _seq.trace(base, a["target"], _heatmap.pagerank(base),
+        rank = _heatmap.pagerank(base)
+        if a.get("all"):
+            # THE TWO ARGUMENTS DO NOT COMPOSE, and this errors instead of picking one. `to`
+            # means "prune nothing on the way to the destination", which is an instruction to
+            # a walk that has an order; the reach set has no order to prune. Honouring one and
+            # dropping the other silently would answer a question nobody asked.
+            if a.get("to"):
+                return {"error": "`all` and `to` do not compose: `to` shapes a WALK toward a "
+                                 "destination and `all` returns the SET reachable from the "
+                                 "entry, which has no destination. Ask for one or the other."}
+            # The narrative is computed anyway and cheaply, so the set can say what FRACTION of
+            # itself the ordered view shows. A cut whose size is unknown reads as everything.
+            narrado = _seq.trace(base, a["target"], rank, depth=int(a.get("depth", 4)), obs=obs)
+            vistos: set[str] = set()
+            if "tree" in narrado:
+                _seq._collect_ids(narrado["tree"], vistos)
+            r = _seq.reach_all(base, a["target"], rank, obs=obs, narrated=vistos)
+            if "error" not in r:
+                r["caveat"] = CAVEAT["reach"]
+                # No `ask_the_user` here, and the reason is the measurement: the narrative starts
+                # at ONE symbol and picks it by mass when no door is declared, which is the
+                # inference that needed a blocking field. `reach_all` takes EVERY symbol the
+                # target resolves to as an entry — there is nothing chosen and nothing to ask.
+                if not r["weighted"]:
+                    r["weight_caveat"] = ("The chain could not be built: the SET is complete, "
+                                          "the weighting is what is missing. `symbols` is empty "
+                                          "for that reason, not because nothing is reached.")
+            return r
+        r = _seq.trace(base, a["target"], rank,
                        depth=int(a.get("depth", 4)), dst=a.get("to"), obs=obs)
         r["caveat"] = CAVEAT["order"]
         # A BLOCKING FIELD, not another caveat, and the difference is measured. An agent

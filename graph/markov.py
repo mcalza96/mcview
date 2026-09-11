@@ -39,10 +39,25 @@ TOLERANCE = 1e-9
 MAX_PASSES = 200
 
 
+def seam_pairs(project) -> set[tuple[str, str]]:
+    """The `(i, j)` pairs a MATCHED LITERAL joined, not a call the AST proved.
+
+    One place, because there are two readings of the same fact and they pull in opposite
+    directions: the chain has to take these out (a hand-written 1.0 is not a probability) and
+    a drawing has to put them in (the crossing between repos is the thing to see). Two
+    consumers, one derivation.
+    """
+    return {(c["from"], c["to"]) for c in getattr(project, "applied_seams", ())}
+
+
 def transitions(project, inside: set[str] | None = None,
                 seams: set[tuple[str, str]] | None = None
                 ) -> dict[str, list[tuple[str, float]]]:
     """`{i: [(j, P(i→j)), …]}` — the matrix row, normalized.
+
+    Seams are OUT of the matrix by default, read from the project itself — see below for why
+    they are not flow. Pass `seams=set()` to put them in, which is a claim you have to make
+    explicitly.
 
     Restricted to the subgraph if `inside` is passed: a branch's probability depends on what
     it competes with, and branches leaving the route do not compete for this flow.
@@ -58,7 +73,16 @@ def transitions(project, inside: set[str] | None = None,
     # when it emits the tool call, which no static analysis sees. Two seams of equal weight
     # give 50/50 by construction; the number was the shape of the artifact, not a
     # measurement.
-    seams = seams or set()
+    #
+    # SO IT IS NOT THE CALLER'S JOB TO REMEMBER. The parameter used to default to "no seams",
+    # which is the wrong answer that costs nothing to give: `--decisions` passed them and the
+    # reach set did not, the two lines derived the same expression from the same attribute, and
+    # the third caller was going to get it wrong too. The project carries its own seams —
+    # `weave.applied_seams`— so the default is now to READ them, and a caller that wants the
+    # seams inside the matrix has to say `seams=set()` out loud. The special case disappears
+    # instead of being handled at every call.
+    if seams is None:
+        seams = seam_pairs(project)
     raw: dict[str, dict[str, float]] = defaultdict(dict)
     for (i, j), w in project.weights.items():
         if inside is not None and (i not in inside or j not in inside):

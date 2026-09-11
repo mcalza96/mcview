@@ -78,13 +78,26 @@ in". Ask what really starts the project first.
 **Ask for the SET before the narrative.**
 
 ```bash
-mcview --sequence <A> --all
+mcview --sequence <A> --all            # CLI
+# MCP: mcview_process(target=<A>, all=true)
 ```
 
 It returns every edge the flow CAN traverse and, next to it, what fraction the readable
 narrative shows. That fraction is routinely small — the narrative descends the heaviest call at
 each level on purpose, so it stays readable. Read the number it gives you for THIS repo before
 believing you have seen the flow.
+
+Under the table by line of work comes the per-symbol list, cut at a floor of expected visits
+(0.01 — less than one pass in a hundred) with the count of what fell below it printed next to
+it. The floor is absolute, so the list does NOT grow with the repo: measured, a 192-symbol reach
+leaves 63 rows and a 12,746-symbol one leaves 107. What is under the floor is still in the SET —
+it is the ordering down there that carries no information, not the reachability.
+
+The weight does not travel through seams. A matched literal joins two repos by NAME, and its
+weight (1.0) was written by hand rather than counted, so feeding it to the chain invents flow:
+measured on a four-repo workspace, taking the 27 seams inside one reach out of the matrix moves
+the weight of 947 symbols, and the ones on the far side of the seam go to exactly 0. They stay
+in the set — the name does join — with no weight to stand on.
 
 Read both columns. An edge whose `unambiguous` count is 0 resolved only through a name several
 symbols share; it is not a connection. Whether that is rare or pervasive depends entirely on the

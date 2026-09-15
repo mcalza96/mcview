@@ -123,4 +123,4 @@ def discovered_guards(paths: list[list[str]], project,
               "loc": project.symbols[n].loc,
               "fraccion": v / total, "en": v, "from": total}
              for n, v in count.items() if v / total >= threshold]
-    return sorted(out, key=lambda x: -x["fraccion"])
+    return sorted(out, key=lambda x: (-x["fraccion"], x["loc"], x["id"]))

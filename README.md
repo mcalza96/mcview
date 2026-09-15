@@ -262,7 +262,7 @@ Requires Python **3.11+**. The main path has zero dependencies; `numpy`/`scipy` 
 by `--modules`, `--k`, `--hierarchy`, `--islands` and `--views`, and `tree_sitter` only by
 TypeScript projects. Each says what to install and exits.
 
-Copying the directory is the model the four bundled skills and the portability check document
+Copying the directory is the model the five bundled skills and the portability check document
 and verify; the packaged command exists so you do not have to clone. Both work — the entrypoint
 puts its own directory on `sys.path` either way.
 
@@ -272,7 +272,7 @@ puts its own directory on `sys.path` either way.
 claude mcp add --scope user mcview -- mcview --mcp
 ```
 
-Ten tools, listed above. When the server is global, pass `projectPath`: one process serves many
+Eleven tools, listed above. When the server is global, pass `projectPath`: one process serves many
 repositories, and without it the answer depends on the directory the client launched it from.
 
 Not on PyPI — the name is taken there by an unrelated project.
@@ -642,7 +642,7 @@ invisible.
 | **No dependencies on the main path** | Verified by blocking the optional modules, not by reading imports. It is what makes installing a matter of copying a directory. |
 | **Config lives outside the tool** | While `mcview.toml` sat inside `mcview/`, extracting the module carried the previous project's roots with it. It is now discovered by walking up from the current directory. |
 | **Layers are directories, not packages** | Mounted on `sys.path`, so imports stay flat. A real package forces `python -m mcview` and breaks the copy model. The price: two layers cannot share a file name — `_layers.collisions()` checks that rather than trusting it. |
-| **The skills travel inside** | `orient-session`, `mcview-repo`, `mcview-process`, `mcview-install`. Shipping the engine without the manual is what lets somebody read a ranking as a conclusion. |
+| **The skills travel inside** | `orient-session`, `mcview-repo`, `mcview-process`, `mcview-install`, `diagram-system`. Shipping the engine without the manual is what lets somebody read a ranking as a conclusion. |
 | **Expensive views are not MCP tools** | `--k`, `--hierarchy`, `--islands` and `--views` run in minutes on a large repo. A call that blocks for minutes is one nobody makes twice. (Duplicate analysis left this list: prefix filtering took it from 25 s to 2.3 s on the reference backend.) |
 
 Eleven self-checks travel with it, in `selfcheck/`. Three cover failure modes that do not

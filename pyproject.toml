@@ -1,7 +1,7 @@
 # Packaging is the SECOND way to install this, never the first.
 #
 # The tool's promise is "copy the directory and write one .toml" — that is what the README
-# documents, what the four skills write in their 54 command blocks, and what
+# documents, what the five skills write in their command blocks, and what
 # `selfcheck/check_portability.py` verifies by copying `mcview/` into a temporary directory and
 # running the CLI as a subprocess. None of that changes here.
 #

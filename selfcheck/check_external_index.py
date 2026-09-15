@@ -248,6 +248,9 @@ def main() -> int:
               f"resolved calls missing")
     for s in skipped:
         print(f"  ~ SKIPPED {s}")
+    if not failures and not results:
+        print(f"  ~ SKIPPED: 0 compared · {len(skipped)} skipped — nothing was measured")
+        return 2
     if not failures:
         # It says how many it compared AND how many it skipped, on the same line, because a
         # green that covered nothing is the failure mode this whole directory exists against.

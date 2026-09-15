@@ -82,19 +82,19 @@ def _mermaid_safe(code: str) -> list[str]:
 
 def main() -> int:
     if not TOML or not os.path.exists(TOML):
-        print("  · skipped (mcview.toml is missing)")
-        return 0
+        print("  ~ SKIPPED: mcview.toml is missing — nothing was measured")
+        return 2
     cfg = _config.load(TOML)
     if not os.path.isdir(cfg.root):
-        print(f"  · skipped ({cfg.root} is missing)")
-        return 0
+        print(f"  ~ SKIPPED: {cfg.root} is missing — nothing was measured")
+        return 2
 
     failures = []
     project = _factory.make_project(cfg)
     OBJETIVO = _largest_target(project)
     if not OBJETIVO:
-        print("  · skipped (the project has no analyzable files)")
-        return 0
+        print("  ~ SKIPPED: the project has no analyzable files — nothing was measured")
+        return 2
     rank = _heatmap.pagerank(project)
     levels = project.levels()
 

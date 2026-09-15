@@ -72,8 +72,8 @@ def _source() -> str:
 def main() -> int:
     tomls = sorted(glob.glob(os.path.join(ROOT, "mcview*.toml")))
     if not tomls:
-        print("  · no mcview*.toml at the root — nothing to check")
-        return 0
+        print("  ~ SKIPPED: no mcview*.toml at the root — nothing was measured")
+        return 2
 
     src = _source()
     failures = []

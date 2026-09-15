@@ -138,8 +138,8 @@ def main() -> int:
                      if f.startswith("mcview") and f.endswith(".toml")
                      and "workspace" not in f)
     if not configs:
-        print("  ~ SKIPPED: no mcview*.toml found — nothing to compare")
-        return 0
+        print("  ~ SKIPPED: no mcview*.toml found — nothing was measured")
+        return 2
 
     # ONE config is enough and that is a measured claim, not thrift: the view machinery is
     # shared and does not know which project it is looking at, so a second project re-tests the

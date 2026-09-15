@@ -652,6 +652,13 @@ losing the metadata that makes it readable without eyes. The second runs the CLI
 subprocess from a temporary directory, because importing the modules proves nothing when
 `sys.path` and `cwd` are already contaminated.
 
+They answer in three states, not two: **`0` it measured and passed, `2` it measured NOTHING,
+`1` it failed.** A lock that skips is not a lock that passes, and while both exited `0` they
+were indistinguishable — a fresh clone with no `mcview.toml` ran the eleven, saw eleven greens,
+and four of them had compared zero cases. `check_reach` still exits `0` with TypeScript
+skipped, and that is the rule working: it measured Python. `2` is for a run that measured
+nothing at all. Run them in CI with `2` treated as failure.
+
 The eleventh is the newest and it was written because the tool was failing it. Its figures
 shipped with no `<title>`, no `<desc>` and no `role` — to a screen reader, an empty box —
 and the journey's per-step tooltips were emitted flat at the SVG root, siblings of the
